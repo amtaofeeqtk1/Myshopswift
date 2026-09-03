@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Order — MyShopSwift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<div class="utility-bar">
+  <div class="wrap">
+    <span>Free UK delivery on orders over £100</span>
+    <div class="ub-right">
+      <span>Phone: 0161 509 2397</span>
+      <span>GBP £</span>
+    </div>
+  </div>
+</div>
+
+<header class="site">
+  <div class="header-inner wrap">
+    <a href="index.html" class="logo">
+      <img src="assets/logo-cropped.jpg" alt="MyShopSwift">
+      <span class="tagline">Shop Easy.<br>Order Fast.<br>Delivered Swift</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Shop</a>
+      <a href="track-order.html" class="active">Track Order</a>
+      <a href="help.html">Help Center</a>
+      <a href="contact.html">Contact Us</a>
+    </nav>
+    <div class="header-actions">
+      <a href="index.html" class="icon-link" aria-label="Your account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+        Account
+      </a>
+      <a href="index.html" class="icon-link" aria-label="Your basket">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h2l2.4 12.4a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+        Basket
+      </a>
+    </div>
+  </div>
+</header>
+<div class="adire"></div>
+
+<section class="page-hero">
+  <div class="wrap">
+    <span class="eyebrow">Customer Care</span>
+    <h1>Track Order</h1>
+    <p>Enter your order number to check its current status. You can only look up orders on your own account.</p>
+  </div>
+</section>
+
+<div class="section-narrow">
+  <div id="trackSignedOut" style="display:none;">
+    <div class="info-card">
+      <p style="font-size:14px;margin:0 0 14px;">Please sign in to track your orders.</p>
+      <a href="index.html" class="btn btn-dark">Go to shop &amp; sign in</a>
+    </div>
+  </div>
+
+  <div id="trackSignedIn" style="display:none;">
+    <div class="field">
+      <label>Order number</label>
+      <input type="text" id="orderNumberInput" placeholder="e.g. a1b2c3d4 or the full order ID">
+    </div>
+    <p class="form-error" id="trackError"></p>
+    <button class="btn btn-dark" id="trackSubmit">Check status</button>
+
+    <div class="order-status-card" id="orderStatusCard" style="display:none;"></div>
+
+    <div style="margin-top:32px;">
+      <h3 style="font-size:15px;color:var(--indigo);margin-bottom:10px;">Your recent orders</h3>
+      <div id="recentOrdersList" style="font-size:13.5px;color:#666;">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="foot-logo">MyShopSwift</div>
+      <p class="small">Shop easy. Order fast. Delivered swift. English and Afro Caribbean groceries, provisions, and everyday gadgets — delivered across the UK.</p>
+    </div>
+    <div>
+      <h5>Shop</h5>
+      <ul>
+        <li><a href="index.html">All products</a></li>
+        <li><a href="index.html#featured">Best sellers</a></li>
+        <li><a href="index.html#gadgets">Gadgets &amp; Accessories</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Customer Care</h5>
+      <ul>
+        <li><a href="contact.html">Contact Us</a></li>
+        <li><a href="help.html">Help Center</a></li>
+        <li><a href="track-order.html">Track Order</a></li>
+        <li><a href="returns.html">Returns &amp; Refunds</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Company</h5>
+      <ul>
+        <li><a href="about.html">About Us</a></li>
+        <li><a href="careers.html">Careers</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="terms.html">Terms &amp; Conditions</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 MyShopSwift. All rights reserved.</span>
+    <span>Card • Cash on Delivery</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const STATUS_LABELS = {
+    pending: "Pending", awaiting_payment: "Awaiting payment", processing: "Processing",
+    shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled"
+  };
+  const fmt = n => "£" + Number(n).toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+  let myOrders = [];
+
+  function renderOrderCard(o){
+    const statusClass = o.status === "delivered" ? "delivered" : (o.status === "cancelled" ? "cancelled" : "");
+    const card = document.getElementById("orderStatusCard");
+    card.style.display = "";
+    card.innerHTML = `
+      <div class="order-status-row"><span>Order number</span><span class="mono">${o.id.slice(0,8)}</span></div>
+      <div class="order-status-row"><span>Placed</span><span>${new Date(o.createdAt).toLocaleString("en-GB")}</span></div>
+      <div class="order-status-row"><span>Status</span><span class="status-pill ${statusClass}">${STATUS_LABELS[o.status] || o.status}</span></div>
+      <div class="order-status-row"><span>Items</span><span>${o.items.reduce((s,i)=>s+i.qty,0)}</span></div>
+      <div class="order-status-row"><span>Total</span><span>${fmt(o.total)}</span></div>
+      <div class="order-status-row"><span>Payment</span><span>${o.paymentMethod === "points" ? "Points" : (o.paymentMethod === "cod" ? "Cash on Delivery" : "Card")}</span></div>
+    `;
+  }
+
+  async function loadOrders(){
+    try{
+      const res = await fetch("/api/orders/mine");
+      if(!res.ok) throw new Error();
+      const data = await res.json();
+      myOrders = data.orders || [];
+      const list = document.getElementById("recentOrdersList");
+      if(myOrders.length === 0){
+        list.textContent = "You haven't placed any orders yet.";
+        return;
+      }
+      list.innerHTML = myOrders.slice().reverse().slice(0,8).map(o => `
+        <div class="order-status-row" style="cursor:pointer;" data-order="${o.id}">
+          <span>${o.id.slice(0,8)} — ${new Date(o.createdAt).toLocaleDateString("en-GB")}</span>
+          <span class="status-pill">${STATUS_LABELS[o.status] || o.status}</span>
+        </div>`).join("");
+      list.querySelectorAll("[data-order]").forEach(row=>{
+        row.addEventListener("click", ()=>{
+          const o = myOrders.find(x=>x.id===row.dataset.order);
+          if(o) renderOrderCard(o);
+        });
+      });
+    }catch(e){
+      document.getElementById("recentOrdersList").textContent = "Couldn't load your orders right now.";
+    }
+  }
+
+  document.getElementById("trackSubmit").addEventListener("click", ()=>{
+    const errEl = document.getElementById("trackError");
+    errEl.textContent = "";
+    const query = document.getElementById("orderNumberInput").value.trim().toLowerCase();
+    if(!query){ errEl.textContent = "Enter your order number"; return; }
+    const match = myOrders.find(o => o.id.toLowerCase() === query || o.id.toLowerCase().startsWith(query));
+    if(!match){ errEl.textContent = "No matching order found on your account"; return; }
+    renderOrderCard(match);
+  });
+
+  fetch("/api/auth/me").then(r=>r.json()).then(data=>{
+    if(data.user){
+      document.getElementById("trackSignedIn").style.display = "";
+      loadOrders();
+    } else {
+      document.getElementById("trackSignedOut").style.display = "";
+    }
+  }).catch(()=>{
+    document.getElementById("trackSignedOut").style.display = "";
+  });
+})();
+</script>
+
+</body>
+</html>

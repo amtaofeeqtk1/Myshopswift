@@ -1,0 +1,22 @@
+{
+  "name": "myshopswift",
+  "version": "1.0.0",
+  "description": "MyShopSwift storefront with accounts, checkout, and a live admin panel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.14",
+    "pg": "^8.23.0",
+    "stripe": "^16.0.0"
+  }
+}

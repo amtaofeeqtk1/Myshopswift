@@ -1,0 +1,32 @@
+# Render Blueprint — lets you deploy this whole app by connecting
+# your repo at https://dashboard.render.com/blueprints and picking
+# this file. You'll still need to set DATABASE_URL, ADMIN_KEY,
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and PUBLIC_URL yourself in the
+# Render dashboard after it's created, since real secrets should never live
+# in a committed file.
+#
+# No persistent disk needed — every piece of data this app stores (users,
+# sessions, orders, products, rewards, notifications, password resets,
+# contact messages, and flyer images) lives in PostgreSQL. That works fine
+# on Render's free plan, which has no persistent disk at all: nothing here
+# depends on the local filesystem surviving a redeploy or a spin-down.
+services:
+  - type: web
+    name: myshopswift
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PUBLIC_URL
+        sync: false

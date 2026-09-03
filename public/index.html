@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyShopSwift — Shop Easy. Order Fast. Delivered Swift. | UK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --indigo:#0F2A6B;
+    --indigo-2:#0A1F52;
+    --paper:#F7F9FC;
+    --paper-2:#EBF0F8;
+    --ochre:#FF6B00;
+    --rust:#C2410C;
+    --green:#2F6E4E;
+    --ink:#0F2A6B;
+    --line:rgba(27,31,59,0.14);
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Poppins',sans-serif;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  button{font-family:inherit;cursor:pointer;}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 24px;}
+
+  /* ---- Swift-stripe divider (signature element) ---- */
+  .adire{
+    height:6px;
+    width:100%;
+    background: linear-gradient(90deg, var(--indigo) 0%, var(--indigo) 55%, var(--rust) 78%, var(--ochre) 100%);
+  }
+  .adire.thin{height:3px;}
+
+  /* ---- Top utility bar ---- */
+  .utility-bar{
+    background:var(--indigo);
+    color:var(--paper);
+    font-size:12.5px;
+    letter-spacing:.02em;
+  }
+  .utility-bar .wrap{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 24px;flex-wrap:wrap;gap:6px;
+  }
+  .utility-bar span{opacity:.85;}
+  .utility-bar .ub-right{display:flex;gap:18px;}
+
+  /* ---- Header ---- */
+  header.site{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:50;
+  }
+  .header-inner{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 24px;gap:24px;
+  }
+  .logo{
+    display:flex;align-items:center;gap:10px;
+  }
+  .logo img{
+    height:64px;width:auto;display:block;
+  }
+  .logo .tagline{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--rust);
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .search-box{
+    flex:1;max-width:440px;
+    display:flex;align-items:center;
+    border:1.5px solid var(--indigo);
+    background:#fff;
+  }
+  .search-box input{
+    border:none;background:transparent;padding:11px 12px;
+    flex:1;font-size:14px;font-family:'Work Sans',sans-serif;outline:none;
+  }
+  .search-box button{
+    background:var(--indigo);color:var(--paper);border:none;
+    padding:11px 16px;font-size:13px;
+  }
+  .header-actions{display:flex;align-items:center;gap:20px;}
+  .icon-btn{
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:11px;font-family:'IBM Plex Mono',monospace;
+    background:none;border:none;color:var(--ink);position:relative;
+  }
+  .icon-btn svg{width:22px;height:22px;}
+  .cart-count{
+    position:absolute;top:-6px;right:-10px;
+    background:var(--rust);color:#fff;
+    border-radius:50%;width:18px;height:18px;
+    font-size:10.5px;display:flex;align-items:center;justify-content:center;
+    font-family:'Work Sans',sans-serif;font-weight:600;
+  }
+
+  /* ---- Category nav ---- */
+  nav.cat-nav{
+    background:var(--indigo);
+    overflow-x:auto;
+  }
+  nav.cat-nav ul{
+    list-style:none;display:flex;margin:0;padding:0 24px;
+    max-width:1240px;margin:0 auto;
+  }
+  nav.cat-nav a{
+    display:block;padding:13px 18px;color:var(--paper);
+    font-size:13.5px;font-weight:500;white-space:nowrap;
+    border-bottom:3px solid transparent;
+    transition:border-color .15s, background .15s;
+  }
+  nav.cat-nav a:hover{border-color:var(--ochre);background:var(--indigo-2);}
+  nav.cat-nav a.gadgets{color:var(--ochre);font-weight:600;}
+
+  /* ---- Hero ---- */
+  .hero{
+    position:relative;
+    background:var(--indigo);
+    color:var(--paper);
+    overflow:hidden;
+  }
+  .hero-inner{
+    max-width:1240px;margin:0 auto;padding:76px 24px 64px;
+    display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;
+  }
+  .hero .eyebrow{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ochre);
+    margin-bottom:18px;
+  }
+  .hero h1{
+    font-size:clamp(34px,5vw,58px);line-height:1.05;color:var(--paper);
+  }
+  .hero h1 em{font-style:italic;color:var(--ochre);}
+  .hero p.lede{
+    font-size:16.5px;line-height:1.6;max-width:460px;margin:22px 0 30px;
+    color:rgba(247,242,231,.85);
+  }
+  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;}
+  .btn{
+    display:inline-block;padding:13px 26px;font-size:13.5px;font-weight:600;
+    letter-spacing:.02em;border:1.5px solid transparent;transition:all .15s;
+  }
+  .btn-primary{background:var(--ochre);color:var(--indigo);}
+  .btn-primary:hover{background:#c98f22;}
+  .btn-ghost{border-color:rgba(247,242,231,.5);color:var(--paper);}
+  .btn-ghost:hover{border-color:var(--paper);}
+  .hero-stallboard{
+    background:var(--paper);color:var(--ink);
+    padding:26px;border:1px solid var(--indigo);
+    position:relative;
+  }
+  .hero-stallboard::before{
+    content:"TODAY'S FAST PICKS";
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    letter-spacing:.14em;color:var(--rust);display:block;margin-bottom:14px;
+  }
+  .stall-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--line);font-size:14px;
+  }
+  .stall-row:last-child{border-bottom:none;}
+  .stall-row .price{font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--green);}
+
+  /* ---- Brand Flyers carousel ---- */
+  .flyer-carousel-section{padding:44px 0 8px;}
+  .flyer-carousel{
+    position:relative;overflow:hidden;background:var(--paper-2);
+    border:1px solid var(--line);touch-action:pan-y;
+  }
+  .flyer-track{display:flex;transition:transform .5s cubic-bezier(.4,0,.2,1);}
+  .flyer-slide{flex:0 0 100%;min-width:0;}
+  .flyer-slide img{width:100%;height:100%;aspect-ratio:21/8;object-fit:cover;display:block;}
+  .flyer-nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    background:rgba(15,42,107,.55);color:var(--paper);border:none;
+    width:36px;height:36px;border-radius:50%;font-size:13px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;z-index:5;transition:background .15s;
+  }
+  .flyer-nav:hover{background:var(--indigo);}
+  .flyer-prev{left:10px;}
+  .flyer-next{right:10px;}
+  .flyer-dots{
+    position:absolute;bottom:12px;left:0;right:0;
+    display:flex;justify-content:center;gap:7px;z-index:5;
+  }
+  .flyer-dot{
+    width:8px;height:8px;border-radius:50%;background:rgba(247,242,231,.55);
+    border:none;padding:0;cursor:pointer;transition:width .2s,background .2s;
+  }
+  .flyer-dot.active{background:var(--paper);width:22px;border-radius:5px;}
+  @media (max-width:640px){
+    .flyer-slide img{aspect-ratio:4/3;}
+    .flyer-nav{width:30px;height:30px;font-size:11px;}
+  }
+
+  /* ---- Section headers ---- */
+  .section{padding:56px 0;}
+  .section-head{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    margin-bottom:28px;gap:16px;flex-wrap:wrap;
+  }
+  .section-head .num{
+    font-family:'IBM Plex Mono',monospace;color:var(--rust);font-size:13px;margin-bottom:6px;display:block;
+  }
+  .section-head h2{font-size:clamp(24px,3vw,34px);}
+  .section-head a.view-all{
+    font-size:13px;font-family:'IBM Plex Mono',monospace;
+    border-bottom:1px solid var(--ink);padding-bottom:2px;
+  }
+
+  /* ---- Category grid (stall signs) ---- */
+  .cat-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+  }
+  .cat-card{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    padding:22px 18px;
+    min-height:132px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    transition:transform .15s, border-color .15s;
+  }
+  .cat-card:hover{transform:translateY(-3px);border-color:var(--indigo);}
+  .cat-card .cat-icon{font-size:26px;}
+  .cat-card h3{font-size:16px;font-family:'Work Sans',sans-serif;font-weight:600;}
+  .cat-card .cat-count{font-size:12px;color:var(--rust);font-family:'IBM Plex Mono',monospace;}
+  .cat-card.gadgets{
+    background:var(--indigo);color:var(--paper);border-color:var(--indigo);
+  }
+  .cat-card.gadgets .cat-count{color:var(--ochre);}
+
+  .cat-card.has-image{
+    position:relative;padding:0;overflow:hidden;min-height:150px;
+    justify-content:flex-end;border-color:transparent;
+  }
+  .cat-card.has-image img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
+  }
+  .cat-card.has-image::after{
+    content:"";position:absolute;inset:0;z-index:1;
+    background:linear-gradient(180deg, rgba(15,42,107,0) 35%, rgba(15,42,107,.88) 100%);
+  }
+  .cat-card.has-image > div{position:relative;z-index:2;padding:16px 18px;}
+  .cat-card.has-image h3{color:#fff;}
+  .cat-card.has-image .cat-count{color:var(--ochre);}
+  .cat-card.has-image.gadgets{background:var(--paper-2);}
+
+  /* ---- Product grid ---- */
+  .prod-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+  }
+  .prod-card{
+    background:#fff;border:1px solid var(--line);
+    display:flex;flex-direction:column;
+  }
+  .prod-media{
+    aspect-ratio:1/1;
+    background:var(--paper-2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:38px;position:relative;overflow:hidden;
+  }
+  .prod-media .tag{
+    position:absolute;top:8px;left:8px;
+    background:var(--rust);color:#fff;font-size:10px;
+    padding:3px 8px;font-family:'IBM Plex Mono',monospace;letter-spacing:.04em;
+  }
+  .prod-body{padding:14px 14px 16px;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .prod-body .cat-label{
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--rust);font-family:'IBM Plex Mono',monospace;
+  }
+  .prod-body h4{font-size:14.5px;font-weight:600;line-height:1.3;font-family:'Work Sans',sans-serif;}
+  .prod-foot{
+    display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px;
+  }
+  .price-block{display:flex;flex-direction:column;}
+  .price{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;color:var(--indigo);}
+  .price-old{font-size:11px;color:#999;text-decoration:line-through;font-family:'IBM Plex Mono',monospace;}
+  .add-btn{
+    background:var(--indigo);color:var(--paper);border:none;
+    width:34px;height:34px;font-size:18px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s;
+  }
+  .add-btn:hover{background:var(--rust);}
+
+  /* ---- About / signature strip ---- */
+  .about-strip{
+    background:var(--indigo);color:var(--paper);
+  }
+  .about-inner{
+    max-width:1240px;margin:0 auto;padding:64px 24px;
+    display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
+  }
+  .about-inner h2{font-size:clamp(26px,3.4vw,36px);color:var(--paper);}
+  .about-inner p{font-size:15px;line-height:1.7;color:rgba(247,242,231,.82);margin-top:16px;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .stat{border-left:2px solid var(--ochre);padding-left:14px;}
+  .stat .n{font-family:'Poppins',sans-serif;font-size:32px;color:var(--ochre);}
+  .stat .l{font-size:12px;color:rgba(247,242,231,.75);font-family:'IBM Plex Mono',monospace;margin-top:4px;}
+
+  /* ---- Newsletter ---- */
+  .newsletter{
+    background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  }
+  .nl-inner{
+    max-width:1240px;margin:0 auto;padding:40px 24px;
+    display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
+  }
+  .nl-inner h3{font-size:19px;}
+  .nl-inner p{font-size:13.5px;margin-top:4px;color:#555;}
+  .nl-form{display:flex;gap:0;flex:1;max-width:380px;}
+  .nl-form input{
+    flex:1;padding:12px 14px;border:1.5px solid var(--indigo);border-right:none;
+    font-size:13.5px;outline:none;font-family:'Work Sans',sans-serif;
+  }
+  .nl-form button{
+    background:var(--rust);color:#fff;border:none;padding:0 20px;font-size:13px;font-weight:600;
+  }
+
+  /* ---- Footer ---- */
+  footer{background:var(--indigo);color:rgba(247,242,231,.8);}
+  .footer-inner{
+    max-width:1240px;margin:0 auto;padding:56px 24px 28px;
+    display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px;
+  }
+  footer h5{
+    color:var(--paper);font-size:12px;text-transform:uppercase;letter-spacing:.1em;
+    font-family:'IBM Plex Mono',monospace;margin-bottom:16px;
+  }
+  footer ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;font-size:13.5px;}
+  footer ul a:hover{color:var(--ochre);}
+  footer .foot-logo{font-family:'Poppins',sans-serif;font-size:24px;color:var(--paper);margin-bottom:12px;}
+  footer p.small{font-size:13px;line-height:1.6;max-width:280px;}
+  .foot-bottom{
+    border-top:1px solid rgba(247,242,231,.15);
+    padding:20px 24px;font-size:12px;
+    display:flex;justify-content:space-between;max-width:1240px;margin:0 auto;flex-wrap:wrap;gap:8px;
+  }
+
+  /* ---- Cart page (existing drawer, redesigned as a full basket page) ---- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(27,31,59,.5);
+    opacity:0;pointer-events:none;transition:opacity .2s;z-index:90;
+  }
+  .overlay.active{opacity:1;pointer-events:auto;}
+  .cart-drawer{
+    position:fixed;top:0;right:0;height:100%;width:min(560px,100vw);
+    background:var(--paper-2);z-index:95;
+    transform:translateX(100%);transition:transform .25s ease;
+    display:flex;flex-direction:column;
+  }
+  .cart-drawer.active{transform:translateX(0);}
+  .cart-head{
+    background:var(--indigo);color:var(--paper);
+    padding:16px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0;
+  }
+  .cart-back{background:none;border:none;color:var(--paper);font-size:24px;line-height:1;padding:4px;}
+  .cart-head h3{font-size:19px;font-family:'Poppins',sans-serif;flex:1;text-align:center;margin-right:32px;}
+  .cart-body{flex:1;overflow-y:auto;}
+  .cart-summary-line{padding:16px 18px 4px;font-size:14px;color:#555;}
+  .cart-items{padding:8px 18px;display:flex;flex-direction:column;gap:12px;}
+  .cart-item{
+    display:flex;gap:14px;padding:14px;background:#fff;border:1px solid var(--line);
+  }
+  .cart-item .ci-thumb{
+    width:76px;height:76px;background:var(--paper-2);
+    display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;
+  }
+  .cart-item .ci-body{flex:1;display:flex;flex-direction:column;}
+  .cart-item h5{font-size:14px;font-weight:600;margin-bottom:6px;line-height:1.3;}
+  .cart-item .ci-unit-price{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;color:var(--ink);}
+  .ci-controls{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:auto;padding-top:8px;}
+  .ci-remove{
+    background:none;border:none;color:var(--rust);padding:4px;display:flex;align-items:center;
+  }
+  .ci-remove svg{width:19px;height:19px;}
+  .ci-qty-row{
+    display:flex;align-items:center;border:1.5px solid var(--indigo);margin-left:auto;
+  }
+  .ci-qty-row button{
+    width:30px;height:30px;background:none;border:none;font-size:16px;color:var(--indigo);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ci-qty-row button:hover{background:var(--paper-2);}
+  .ci-qty-row .qty{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;min-width:22px;text-align:center;}
+  .ci-meta{font-size:11px;color:#888;margin-top:8px;line-height:1.5;border-top:1px solid var(--line);padding-top:8px;}
+  .ci-meta strong{color:var(--rust);font-weight:600;}
+  .ci-edit-options{background:none;border:none;color:var(--indigo);font-size:11px;text-decoration:underline;padding:0;margin-top:6px;align-self:flex-start;}
+  .cart-empty{padding:60px 20px;text-align:center;color:#888;font-size:14px;}
+  .cart-divider{height:1px;background:var(--line);margin:18px 18px;}
+  .cart-subtotal-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:0 18px;font-size:15px;font-weight:600;
+  }
+  .cart-subtotal-row .amt{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;}
+  .cart-section{padding:0 18px;}
+  .cart-section h4{font-size:14.5px;font-weight:600;margin-bottom:6px;}
+  .cart-section .cart-hint{font-size:12px;color:#888;margin-bottom:8px;}
+  .order-note-box{
+    display:flex;align-items:flex-start;gap:10px;background:#fff;border:1.5px solid var(--line);padding:12px;
+  }
+  .order-note-box svg{width:18px;height:18px;flex-shrink:0;margin-top:2px;color:#888;}
+  .order-note-box textarea{
+    flex:1;border:none;outline:none;font-family:'Work Sans',sans-serif;font-size:13.5px;
+    resize:vertical;min-height:22px;background:transparent;
+  }
+  .price-variations-box{
+    background:#fff;border:1px solid var(--line);border-left:3px solid var(--ochre);
+    padding:12px 14px;font-size:12.5px;line-height:1.6;color:#555;
+  }
+  .price-variations-box h4{font-size:13px;margin-bottom:6px;color:var(--ink);}
+  .cart-foot{padding:16px 18px 22px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+  .checkout-btn{
+    width:100%;background:var(--indigo);color:var(--paper);border:none;
+    padding:14px;font-size:14px;font-weight:600;letter-spacing:.02em;
+  }
+  .checkout-btn:hover{background:var(--rust);}
+  .continue-shopping-btn{
+    width:100%;background:var(--paper-2);color:var(--ink);border:1.5px solid var(--line);
+    padding:13px;font-size:14px;font-weight:600;
+  }
+  .continue-shopping-btn:hover{border-color:var(--indigo);}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--indigo);color:var(--paper);padding:12px 22px;font-size:13.5px;
+    opacity:0;transition:all .25s;z-index:110;font-family:'Work Sans',sans-serif;
+    display:flex;align-items:center;gap:8px;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ---- Account / checkout modals ---- */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(27,31,59,.55);
+    display:none;align-items:center;justify-content:center;z-index:130;padding:20px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal{
+    background:var(--paper);border:1px solid var(--indigo);width:100%;max-width:420px;
+    max-height:90vh;overflow-y:auto;
+  }
+  .modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .modal-head h3{font-size:18px;font-family:'Poppins',sans-serif;}
+  .modal-close{background:none;border:none;font-size:22px;color:var(--ink);}
+  .modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
+  .modal-foot{padding:16px 22px 22px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--line);}
+  .field label{display:block;font-size:11.5px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--rust);margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:10px 11px;border:1.5px solid var(--indigo);background:#fff;font-size:14px;outline:none;font-family:'Work Sans',sans-serif;
+  }
+  .field textarea{resize:vertical;min-height:70px;}
+  .field .hint{font-size:11.5px;color:#888;margin:-2px 0 6px;line-height:1.4;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+  .auth-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:4px;}
+  .auth-tab{background:none;border:none;padding:8px 4px 10px;margin-right:16px;font-size:13.5px;font-weight:600;color:#999;border-bottom:2px solid transparent;}
+  .auth-tab.active{color:var(--indigo);border-color:var(--rust);}
+  .auth-form{display:flex;flex-direction:column;gap:12px;}
+  .form-error{color:var(--rust);font-size:12.5px;margin:0;min-height:1em;}
+  .pay-options{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .pay-option{display:flex;align-items:center;gap:8px;font-size:14px;border:1px solid var(--line);padding:10px 12px;background:#fff;}
+  .points-pay-box{border:1.5px solid var(--ochre);background:#fff8ee;padding:12px;display:flex;flex-direction:column;gap:8px;}
+  .points-pay-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:10px;flex-wrap:wrap;}
+  .points-pay-controls{display:flex;gap:8px;align-items:center;}
+  .points-pay-controls input[type="number"]{width:100px;padding:8px 10px;border:1.5px solid var(--indigo);background:#fff;font-size:14px;}
+  .points-pay-applied{font-size:12.5px;color:var(--rust);font-family:'IBM Plex Mono',monospace;min-height:1em;}
+  .checkout-summary{border-top:1px solid var(--line);padding-top:12px;font-size:13.5px;display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;}
+  .my-orders{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;margin-bottom:4px;}
+  .order-row{border:1px solid var(--line);padding:8px 10px;font-size:12.5px;display:flex;justify-content:space-between;background:#fff;}
+  .order-row .status{font-family:'IBM Plex Mono',monospace;text-transform:uppercase;font-size:10.5px;color:var(--rust);}
+  .no-orders{font-size:13px;color:#888;}
+
+  /* ---- Rewards panel (inside the account modal) ---- */
+  .rewards-stats{display:flex;gap:10px;}
+  .rewards-stat{flex:1;border:1.5px solid var(--indigo);background:#fff;padding:10px 12px;text-align:center;}
+  .rewards-stat-value{display:block;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:20px;color:var(--indigo);}
+  .rewards-stat-label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-top:2px;}
+  .rewards-section{border-top:1px solid var(--line);padding-top:12px;}
+  .rewards-section h4{font-size:13px;font-family:'Poppins',sans-serif;margin:0 0 8px;}
+  .referral-box{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .referral-box input{flex:1;padding:9px 10px;border:1.5px solid var(--line);background:#fff;font-size:12.5px;font-family:'IBM Plex Mono',monospace;color:#555;}
+  .referral-code{flex:1;padding:9px 10px;border:1.5px dashed var(--rust);background:var(--paper-2);font-size:13px;letter-spacing:.03em;}
+  .redeem-row{display:flex;gap:8px;}
+  .redeem-row input{flex:1;padding:9px 10px;border:1.5px solid var(--indigo);background:#fff;font-size:13px;}
+  .rewards-vouchers{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .voucher-row{border:1px solid var(--line);padding:8px 10px;font-size:12px;display:flex;justify-content:space-between;background:#fff;}
+  .voucher-row .voucher-code{font-family:'IBM Plex Mono',monospace;color:var(--indigo);}
+  .voucher-row .voucher-status{font-size:10.5px;text-transform:uppercase;color:var(--rust);}
+  .rewards-earn-list{margin:0;padding-left:18px;font-size:12.5px;color:#444;line-height:1.7;}
+  .rewards-history-row{border:1px solid var(--line);padding:8px 10px;font-size:12px;display:flex;justify-content:space-between;background:#fff;gap:8px;}
+  .rewards-history-row .points-pos{color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .rewards-history-row .points-neg{color:var(--rust);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .btn{display:inline-block;padding:11px 20px;font-size:13px;font-weight:600;letter-spacing:.02em;border:1.5px solid transparent;transition:all .15s;background:none;}
+  .btn-primary{background:var(--ochre);color:var(--indigo);}
+  .btn-primary:hover{background:#c98f22;}
+  .btn-dark{background:var(--indigo);color:var(--paper);}
+  .btn-dark:hover{background:var(--rust);}
+  .btn-outline{background:transparent;border-color:var(--indigo);color:var(--indigo);}
+  .btn-outline:hover{background:var(--indigo);color:var(--paper);}
+
+  /* ---- Product options modal ---- */
+  .po-modal{max-width:440px;}
+  .po-product{display:flex;gap:14px;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line);}
+  .po-thumb{
+    width:72px;height:72px;flex-shrink:0;background:var(--paper-2);
+    display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden;
+  }
+  .po-thumb img{width:100%;height:100%;object-fit:cover;}
+  .po-info h4{font-size:15.5px;font-weight:600;font-family:'Work Sans',sans-serif;line-height:1.3;margin-bottom:4px;}
+  .po-info .po-unit-price{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--indigo);}
+  .po-qty-row{display:flex;align-items:center;gap:0;border:1.5px solid var(--indigo);width:fit-content;}
+  .po-qty-row button{
+    width:38px;height:38px;background:var(--indigo);color:var(--paper);border:none;font-size:18px;line-height:1;
+  }
+  .po-qty-row button:hover{background:var(--rust);}
+  .po-qty-row .po-qty-value{
+    width:46px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;
+  }
+  .po-line-total{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:#666;margin-top:6px;}
+  .po-description{font-size:13px;line-height:1.6;color:#555;border:1.5px solid var(--line);padding:10px 12px;background:#fff;}
+  .po-brand-select{width:100%;padding:11px 12px;border:1.5px solid var(--line);background:#fff;font:inherit;color:#333;border-radius:4px;}
+  .po-brand-select:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 2px rgba(34,55,118,.08);}
+  .po-modal .modal-foot{flex-direction:column;align-items:stretch;gap:8px;}
+  .po-modal .modal-foot .btn{width:100%;text-align:center;}
+  .cart-item .ci-meta{font-size:11px;color:#888;margin-top:4px;line-height:1.5;}
+  .cart-item .ci-meta strong{color:var(--rust);font-weight:600;}
+
+  @media (max-width:900px){
+    .hero-inner{grid-template-columns:1fr;}
+    .cat-grid{grid-template-columns:repeat(2,1fr);}
+    .prod-grid{grid-template-columns:repeat(2,1fr);}
+    .about-inner{grid-template-columns:1fr;}
+    .footer-inner{grid-template-columns:1fr 1fr;}
+    .search-box{display:none;}
+  }
+  @media (max-width:520px){
+    .utility-bar .ub-right{display:none;}
+    .header-inner{padding:14px 16px;}
+    .wrap{padding:0 16px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;scroll-behavior:auto !important;}
+  }
+  :focus-visible{outline:2px solid var(--rust);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div class="utility-bar">
+  <div class="wrap">
+    <span>Free UK delivery on orders over £100</span>
+    <div class="ub-right">
+      <span>Phone: 0161 509 2397</span>
+      <span>GBP £</span>
+    </div>
+  </div>
+</div>
+
+<header class="site">
+  <div class="header-inner wrap">
+    <a href="#top" class="logo">
+      <img src="assets/logo-cropped.jpg" alt="MyShopSwift">
+      <span class="tagline">Shop Easy.<br>Order Fast.<br>Delivered Swift</span>
+    </a>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search rice, palm oil, earbuds…">
+      <button id="searchBtn" aria-label="Search">Search</button>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="accountToggle" aria-label="Account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+        <span id="accountLabel">Account</span>
+      </button>
+      <button class="icon-btn" id="cartToggle" aria-label="Open cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h2l2.4 12.4a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+        Cart
+        <span class="cart-count mono" id="cartCount">0</span>
+      </button>
+    </div>
+  </div>
+  <nav class="cat-nav">
+    <ul id="catNav"></ul>
+  </nav>
+</header>
+
+<div class="adire"></div>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <h1>Shop easy.<br><em>Delivered swift.</em></h1>
+        <p class="lede">MyShopSwift brings the whole shop to your phone, delivered fast across the UK.</p>
+        <div class="hero-ctas">
+          <a href="#featured" class="btn btn-primary">Shop today's picks</a>
+          <a href="#gadgets" class="btn btn-ghost">Browse Gadgets &amp; Accessories</a>
+        </div>
+      </div>
+      <div class="hero-stallboard">
+        <div class="stall-row"><span>Ground Crayfish, 200g</span><span class="price mono">£4.50</span></div>
+        <div class="stall-row"><span>Titus Fish, pack of 3</span><span class="price mono">£8.99</span></div>
+        <div class="stall-row"><span>10,000mAh Power Bank</span><span class="price mono">£17.99</span></div>
+        <div class="stall-row"><span>Local Rice, 5kg</span><span class="price mono">£12.50</span></div>
+        <div class="stall-row"><span>Bluetooth Earbuds</span><span class="price mono">£14.99</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="flyer-carousel-section wrap" id="brandFlyersSection" style="display:none;">
+    <div class="section-head">
+      <div>
+        <span class="num">FEATURED BRANDS</span>
+        <h2>Brand Flyers</h2>
+      </div>
+    </div>
+    <div class="flyer-carousel" id="flyerCarousel">
+      <div class="flyer-track" id="flyerTrack"></div>
+      <button class="flyer-nav flyer-prev" id="flyerPrev" type="button" aria-label="Previous flyer" style="display:none;">&#10094;</button>
+      <button class="flyer-nav flyer-next" id="flyerNext" type="button" aria-label="Next flyer" style="display:none;">&#10095;</button>
+      <div class="flyer-dots" id="flyerDots"></div>
+    </div>
+  </section>
+
+  <div class="adire thin"></div>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div>
+        <span class="num">01 — SECTIONS OF THE MARKET</span>
+        <h2>Shop by category</h2>
+      </div>
+    </div>
+    <div class="cat-grid" id="catGrid"></div>
+  </section>
+
+  <section class="section wrap" id="featured">
+    <div class="section-head">
+      <div>
+        <span class="num">02 — TODAY'S PICKS</span>
+        <h2>Best-selling products</h2>
+      </div>
+      <a href="#" class="view-all" data-cat="all">View all products →</a>
+    </div>
+    <div class="prod-grid" id="featuredGrid"></div>
+  </section>
+
+  <div class="adire thin"></div>
+
+  <section class="section wrap" id="gadgets">
+    <div class="section-head">
+      <div>
+        <span class="num">03 — NEW SECTION</span>
+        <h2>Gadgets &amp; Accessories</h2>
+      </div>
+      <a href="#" class="view-all" data-cat="Gadgets & Accessories">View all →</a>
+    </div>
+    <div class="prod-grid" id="gadgetsGrid"></div>
+  </section>
+
+  <section class="about-strip">
+    <div class="about-inner">
+      <div>
+        <span class="eyebrow" style="color:var(--ochre);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;">About MyShopSwift</span>
+        <h2>Everything you need, delivered swift.</h2>
+        <p>MyShopSwift brings together groceries, condiments, drinks, beauty essentials, and everyday gadgets and accessories in one place.</p>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="n">10</div><div class="l">PRODUCT CATEGORIES</div></div>
+        <div class="stat"><div class="n">200+</div><div class="l">ITEMS IN STOCK</div></div>
+        <div class="stat"><div class="n">2</div><div class="l">CITIES SERVED</div></div>
+        <div class="stat"><div class="n">24HR</div><div class="l">MANCHESTER DISPATCH</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="allProducts">
+    <div class="section-head">
+      <div>
+        <span class="num">04 — FULL CATALOGUE</span>
+        <h2 id="catalogueTitle">All products</h2>
+      </div>
+    </div>
+    <div class="prod-grid" id="allGrid"></div>
+  </section>
+
+  <div class="newsletter">
+    <div class="nl-inner">
+      <div>
+        <h3>Get 5% off your first order</h3>
+        <p>Weekly restock alerts and new arrivals — including new gadgets.</p>
+      </div>
+      <form class="nl-form" id="nlForm">
+        <input type="email" required placeholder="your@email.com">
+        <button type="submit">Subscribe</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="foot-logo">MyShopSwift</div>
+      <p class="small">Shop easy. Order fast. Delivered swift. English and Afro Carribean groceries, provisions, and everyday gadgets — delivered across the UK.</p>
+    </div>
+    <div>
+      <h5>Shop</h5>
+      <ul id="footCatList"></ul>
+    </div>
+    <div>
+      <h5>Customer Care</h5>
+      <ul>
+        <li><a href="contact.html">Contact Us</a></li>
+        <li><a href="help.html">Help Center</a></li>
+        <li><a href="track-order.html">Track Order</a></li>
+        <li><a href="returns.html">Returns &amp; Refunds</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Company</h5>
+      <ul>
+        <li><a href="about.html">About Us</a></li>
+        <li><a href="careers.html">Careers</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="terms.html">Terms &amp; Conditions</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 MyShopSwift. All rights reserved.</span>
+    <span>Card • Cash on Delivery</span>
+  </div>
+</footer>
+
+<div class="overlay" id="overlay"></div>
+<aside class="cart-drawer" id="cartDrawer" aria-label="Shopping basket">
+  <div class="cart-head">
+    <button class="cart-back" id="cartClose" aria-label="Back to shopping">&larr;</button>
+    <h3>MyShopSwift</h3>
+  </div>
+  <div class="cart-body">
+    <div class="cart-summary-line" id="cartSummaryLine">0 item(s) in cart</div>
+    <div class="cart-items" id="cartItems"></div>
+
+    <div class="cart-subtotal-row">
+      <span>Subtotal</span>
+      <span class="amt mono" id="cartTotal">£0.00</span>
+    </div>
+
+    <div class="cart-divider"></div>
+
+    <div class="cart-section">
+      <h4>Order notes/instructions</h4>
+      <div class="cart-hint">Add any special instruction for this order</div>
+      <div class="order-note-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <textarea id="orderNoteInput" rows="1" placeholder="e.g. Please deliver after 5pm" maxlength="300"></textarea>
+      </div>
+    </div>
+
+    <div class="cart-divider"></div>
+
+    <div class="cart-section" style="margin-bottom:18px;">
+      <div class="price-variations-box">
+        <h4>Price variations</h4>
+        If there are price variations or other changes to your order items, and the actual order amount turns out different at the shop, then the difference will be balanced with your MyShopSwift wallet when the order is completed.
+      </div>
+    </div>
+  </div>
+  <div class="cart-foot">
+    <button class="checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
+    <button class="continue-shopping-btn" id="continueShoppingBtn">Continue shopping</button>
+  </div>
+</aside>
+
+<!-- Account modal: login / register / signed-in view -->
+<div class="modal-overlay" id="accountModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="accountModalTitle">Sign in</h3>
+      <button class="modal-close" data-close-account>&times;</button>
+    </div>
+    <div class="modal-body" id="accountLoggedOut">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-tab="login">Sign in</button>
+        <button class="auth-tab" data-auth-tab="register">Create account</button>
+      </div>
+      <div id="loginForm" class="auth-form">
+        <div class="field"><label>Email</label><input type="email" id="loginEmail"></div>
+        <div class="field"><label>Password</label><input type="password" id="loginPassword"></div>
+        <p class="form-error" id="loginError"></p>
+        <button class="btn btn-primary" id="loginSubmit" style="width:100%;">Sign in</button>
+        <button type="button" class="ci-edit-options" id="forgotPasswordLink" style="align-self:center;margin-top:2px;">Forgot password?</button>
+      </div>
+      <div id="forgotPasswordForm" class="auth-form" style="display:none;">
+        <p style="font-size:13px;color:#666;margin:0;">Enter your account email and we'll send you a link to reset your password.</p>
+        <div class="field"><label>Email</label><input type="email" id="forgotEmail"></div>
+        <p class="form-error" id="forgotError"></p>
+        <p style="font-size:12.5px;color:var(--green);margin:0;display:none;" id="forgotSuccess"></p>
+        <button class="btn btn-primary" id="forgotSubmit" style="width:100%;">Send reset link</button>
+        <button type="button" class="ci-edit-options" id="backToLoginLink" style="align-self:center;margin-top:2px;">Back to sign in</button>
+      </div>
+      <div id="registerForm" class="auth-form" style="display:none;">
+        <div class="field"><label>Full name</label><input type="text" id="regName"></div>
+        <div class="field"><label>Email</label><input type="email" id="regEmail"></div>
+        <div class="field"><label>Password (min. 8 characters)</label><input type="password" id="regPassword"></div>
+        <div class="field"><label>Referral code (optional)</label><input type="text" id="regReferralCode" placeholder="MSWIFT-XXXXXX"></div>
+        <p class="form-error" id="regError"></p>
+        <button class="btn btn-primary" id="registerSubmit" style="width:100%;">Create account</button>
+      </div>
+    </div>
+    <div class="modal-body" id="accountLoggedIn" style="display:none;">
+      <p>Signed in as <strong id="accountName"></strong><br><span style="color:#666;font-size:13px;" id="accountEmail"></span></p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-account-tab="orders" type="button">Orders</button>
+        <button class="auth-tab" data-account-tab="rewards" type="button">Rewards</button>
+      </div>
+
+      <div id="accountOrdersPanel">
+        <div id="myOrders" class="my-orders"></div>
+      </div>
+
+      <div id="accountRewardsPanel" style="display:none;">
+        <div class="rewards-stats">
+          <div class="rewards-stat"><span class="rewards-stat-value" id="rwPoints">0</span><span class="rewards-stat-label">Points</span></div>
+          <div class="rewards-stat"><span class="rewards-stat-value" id="rwVoucherValue">£0</span><span class="rewards-stat-label">Ready to redeem</span></div>
+        </div>
+
+        <div class="rewards-section">
+          <h4>Refer a friend</h4>
+          <div class="referral-box">
+            <div class="referral-code mono" id="rwReferralCode">—</div>
+            <button class="btn btn-outline btn-sm" id="rwCopyCode" type="button">Copy code</button>
+          </div>
+          <div class="referral-box">
+            <input type="text" id="rwReferralLink" readonly>
+            <button class="btn btn-outline btn-sm" id="rwCopyLink" type="button">Copy link</button>
+          </div>
+          <p class="hint" id="rwReferralStatus"></p>
+        </div>
+
+        <div class="rewards-section">
+          <h4>Redeem points for a voucher</h4>
+          <div class="redeem-row">
+            <input type="number" id="rwRedeemPoints" min="10" step="10" placeholder="Points (multiples of 10)">
+            <button class="btn btn-primary btn-sm" id="rwRedeemBtn" type="button">Redeem</button>
+          </div>
+          <p class="form-error" id="rwRedeemError"></p>
+          <div id="rwVouchers" class="rewards-vouchers"></div>
+        </div>
+
+        <div class="rewards-section">
+          <h4>How you earn points</h4>
+          <ul class="rewards-earn-list" id="rwHowToEarn"></ul>
+        </div>
+
+        <div class="rewards-section">
+          <h4>Points history</h4>
+          <div id="rwHistory" class="my-orders"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-outline" id="logoutBtn" style="width:100%;margin-top:14px;">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Product options modal: shown before an item is added to the basket -->
+<div class="modal-overlay" id="productOptionsOverlay">
+  <div class="modal po-modal">
+    <div class="modal-head">
+      <h3>Product options</h3>
+      <button class="modal-close" data-close-product-options aria-label="Close without adding to basket">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="po-product">
+        <div class="po-thumb" id="poThumb"></div>
+        <div class="po-info">
+          <h4 id="poName"></h4>
+          <span class="po-unit-price mono" id="poUnitPrice"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Quantity</label>
+        <div class="po-qty-row">
+          <button type="button" id="poQtyMinus" aria-label="Decrease quantity">–</button>
+          <span class="po-qty-value" id="poQtyValue">1</span>
+          <button type="button" id="poQtyPlus" aria-label="Increase quantity">+</button>
+        </div>
+        <div class="po-line-total" id="poLineTotal"></div>
+      </div>
+
+      <div class="field" id="poBrandField" style="display:none;">
+        <label>Brand</label>
+        <select id="poBrand" class="po-brand-select">
+          <option value="">Please select a brand...</option>
+        </select>
+      </div>
+
+      <div class="field" id="poDescriptionField">
+        <label>Description</label>
+        <div class="po-description" id="poDescription"></div>
+      </div>
+
+      <div class="field">
+        <label>Add replacement note</label>
+        <div class="hint">What should the seller do if item is not available?</div>
+        <select id="poReplacement">
+          <option value="">Please select...</option>
+          <option value="similar">Replace with a similar item</option>
+          <option value="contact">Contact me before replacing</option>
+          <option value="refund">Refund this item / Do not replace</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Special Instruction</label>
+        <div class="hint">You can add Special Instruction for this item</div>
+        <textarea id="poNote" rows="3" placeholder="e.g. Please cut into small pieces, please choose ripe ones…" maxlength="300"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-dark" id="poConfirmBtn" type="button">Add 1 to basket: £0.00</button>
+      <button class="btn btn-outline" data-close-product-options type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Checkout modal -->
+<div class="modal-overlay" id="checkoutModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Checkout</h3>
+      <button class="modal-close" data-close-checkout>&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Delivery address line</label><input type="text" id="addrLine1" placeholder="123 High Street"></div>
+      <div class="field-row">
+        <div class="field"><label>City</label><input type="text" id="addrCity" placeholder="London"></div>
+        <div class="field"><label>Postcode</label><input type="text" id="addrPostcode" placeholder="E1 6AN"></div>
+      </div>
+      <div class="field" id="pointsPayField" style="display:none;">
+        <label>Pay with points</label>
+        <div class="points-pay-box">
+          <div class="points-pay-row">
+            <span id="pointsPayAvailable">You have 0 points (£0.00)</span>
+            <label class="pay-option" style="border:none;padding:0;width:auto;">
+              <input type="checkbox" id="usePointsToggle"> Use points
+            </label>
+          </div>
+          <div class="points-pay-controls" id="pointsPayControls" style="display:none;">
+            <input type="number" id="pointsToUseInput" min="0" step="1" value="0">
+            <button type="button" class="btn btn-outline btn-sm" id="useMaxPointsBtn">Use max</button>
+          </div>
+          <div class="points-pay-applied" id="pointsPayApplied"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Payment method</label>
+        <div class="pay-options">
+          <label class="pay-option"><input type="radio" name="payMethod" value="cod" checked> Cash on Delivery</label>
+          <label class="pay-option"><input type="radio" name="payMethod" value="card"> Pay by card</label>
+        </div>
+        <div class="hint" id="payMethodHint" style="display:none;">Your points cover the full order — no card or cash needed.</div>
+      </div>
+      <div class="checkout-summary" id="checkoutSummary"></div>
+      <p class="form-error" id="checkoutError"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close-checkout>Cancel</button>
+      <button class="btn btn-dark" id="placeOrderBtn">Place order</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Added to basket</div>
+
+
+
+<script>
+(function(){
+  // ---------- Data ----------
+  let CATEGORIES = [
+    { id:"meat-seafood", name:"Meat & Seafood", icon:"", image:"assets/categories/Seafood .jpeg" },
+    { id:"condiments", name:"Condiments & Spices", icon:"", image:"assets/categories/Spices .webp" },
+    { id:"drinks", name:"Drinks & Beverages", icon:"", image:"assets/categories/drinks.jpg" },
+    { id:"produce", name:"Fruits & Vegetables", icon:"", image:"assets/categories/fruit.jpg" },
+    { id:"grains", name:"Grains, Flour & Cereal", icon:"", image:"assets/categories/rice.jpeg" },
+    { id:"snacks", name:"Snacks & Confectionery", icon:"", image:"assets/products/Plantain-chips.jpeg" },
+    { id:"beauty", name:"Beauty & Household", icon:"", image:"assets/categories/soap.jpg" },
+    { id:"gadgets", name:"Gadgets & Accessories", icon:"", image:"assets/categories/gadgets.jpeg" },
+    { id:"ready-meals", name:"Ready Meals", icon:"", image:"assets/categories/Ready-meals.jpeg" },
+    { id:"cupboard-food", name:"Cupboard Food", icon:"", image:"assets/categories/Cupboard .jpeg" },
+  ];
+
+  let PRODUCTS = [
+    { id:1, name:"Goat Meat, Fresh Cut (1kg)", cat:"Meat & Seafood", price:9.99, old:11.49, icon:"", tag:"Sale", image:"assets/products/goat-meat.png", description:"Fresh-cut goat meat, bone-in, perfect for pepper soup or stew. Sold in 1kg portions." },
+    { id:2, name:"Titus Mackerel Fish, Pack of 3", cat:"Meat & Seafood", price:8.99, icon:"", image:"assets/products/Titus .jpeg", description:"Whole Titus mackerel, cleaned and pack-ready — a staple for stews and grilled fish dishes." },
+    { id:3, name:"Chicken Gizzard (1kg)", cat:"Meat & Seafood", price:5.49, icon:"", image:"assets/products/Chicken-gizzard .webp", description:"Tender chicken gizzard, cleaned and trimmed, great for peppered gizzard or stew." },
+    { id:4, name:"Cow Tripe (Shaki), 850g", cat:"Meat & Seafood", price:6.99, icon:"", image:"assets/products/Cow-tripe.jpg", description:"Cow tripe (shaki), pre-cleaned and cut, ideal for traditional soups and stews." },
+
+    { id:5, name:"Ground Crayfish, 200g", cat:"Condiments & Spices", price:4.50, icon:"", image:"assets/products/Ground-crayfish.jpg", description:"Finely ground crayfish for seasoning soups, stews, and sauces with authentic flavour." },
+    { id:6, name:"Maggi Seasoning Cubes, 400g", cat:"Condiments & Spices", price:3.29, icon:"", image:"assets/products/Maggi.jpeg", description:"Classic all-purpose seasoning cubes for everyday Nigerian and West African cooking." },
+    { id:7, name:"Ground Egusi (Melon Seeds)", cat:"Condiments & Spices", price:4.99, icon:"", image:"assets/products/Ground-egunsi.jpg", description:"Ground egusi (melon seeds) for a rich, hearty egusi soup base." },
+    { id:8, name:"Pure Palm Oil, 1L", cat:"Condiments & Spices", price:5.49, old:6.49, icon:"", tag:"Sale", image:"assets/products/Palm-oil.jpeg" , description:"100% pure palm oil, cold-pressed, for authentic colour and flavour in traditional cooking." },
+
+    { id:9, name:"Malta Guinness, Pack of 6", cat:"Drinks & Beverages", price:6.99, icon:"", image:"assets/products/Malt-bottle.jpg", description:"Malt drink pack, non-alcoholic, rich and refreshing — a household favourite." },
+    { id:10, name:"Zobo Hibiscus Drink, 500ml", cat:"Drinks & Beverages", price:2.49, icon:"", image:"assets/products/Zobo.jpeg", description:"Traditional hibiscus (zobo) drink, naturally spiced and refreshing." },
+    { id:11, name:"Chapman Mix, 1L", cat:"Drinks & Beverages", price:3.99, icon:"", image:"assets/products/Chaps-Premium-Chapma.jpg", description:"Ready-mixed Chapman cocktail base — just pour and serve chilled." },
+    { id:12, name:"Supermalt Can, 500ml", cat:"Drinks & Beverages", price:1.79, icon:"", image:"assets/products/SUPERMALT-CAN-500mlx24-15.99-2.jpg", description:"Malt drink in a convenient can, nourishing and naturally sweet." },
+
+    { id:13, name:"Plantain, Yellow (bunch)", cat:"Fruits & Vegetables", price:3.49, icon:"", image:"assets/products/Plantain-yellow.jpeg", description:"Ripe yellow plantain, sold by the bunch — great for frying, boiling, or roasting." },
+    { id:14, name:"Scotch Bonnet Peppers, 150g", cat:"Fruits & Vegetables", price:2.29, icon:"", image:"assets/products/Scotch-Peppers.jpeg", description:"Fresh scotch bonnet peppers for authentic West African heat and flavour." },
+    { id:15, name:"Yam Tuber, Medium", cat:"Fruits & Vegetables", price:5.99, icon:"", image:"assets/products/yam.jpg", description:"Fresh medium-sized yam tuber, ideal for pounding, boiling, or frying." },
+    { id:16, name:"Fresh Tomatoes, 1kg", cat:"Fruits & Vegetables", price:2.79, icon:"", image:"assets/products/Tomatoes .jpeg", description:"Fresh, ripe tomatoes, sold by the kilo — perfect for stews and sauces." },
+
+    { id:17, name:"Local Rice, 5kg", cat:"Grains, Flour & Cereal", price:12.50, icon:"", image:"assets/products/nigerian-local-rice.jpg", description:"Long-grain local rice, 5kg bag, a kitchen staple for jollof and other rice dishes." },
+    { id:18, name:"Brown Beans, 4kg", cat:"Grains, Flour & Cereal", price:10.99, icon:"", image:"assets/products/Brown-beans.jpg", description:"Brown beans, 4kg bag, ideal for moin moin, akara, or beans porridge." },
+    { id:19, name:"Garri, White, 4kg", cat:"Grains, Flour & Cereal", price:8.49, icon:"", image:"assets/products/white-garri.png", description:"White garri, 4kg, finely processed cassava flakes for eba and other dishes." },
+    { id:20, name:"Yam Flour (Elubo), 2kg", cat:"Grains, Flour & Cereal", price:7.99, icon:"", image:"assets/products/Yam-flour.jpeg", description:"Yam flour (elubo), 2kg, for smooth, authentic amala." },
+
+    { id:21, name:"Plantain Chips, 200g", cat:"Snacks & Confectionery", price:2.49, icon:"", image:"assets/products/Plantain-chips.jpeg", description:"Crispy plantain chips, lightly salted — a popular West African snack." },
+    { id:22, name:"Chin Chin, Family Pack", cat:"Snacks & Confectionery", price:3.49, icon:"", image:"assets/products/Chin-chin.jpg", description:"Sweet, crunchy chin chin, freshly made in a family-size pack." },
+    { id:23, name:"Groundnuts, Roasted, 500g", cat:"Snacks & Confectionery", price:2.29, icon:"", image:"assets/products/Groundnut .jpg", description:"Roasted groundnuts, 500g, a classic protein-rich snack." },
+
+    { id:24, name:"Dudu Osun Black Soap", cat:"Beauty & Household", price:1.99, icon:"", image:"assets/products/Dudu-osu.jpeg", description:"Dudu Osun black soap, natural and gentle, great for everyday skincare." },
+    { id:25, name:"Shea Butter, Raw, 500g", cat:"Beauty & Household", price:4.49, icon:"", image:"assets/products/Shea-butter.jpg", description:"Raw, unrefined shea butter, 500g, deeply moisturising for skin and hair." },
+    { id:26, name:"Coconut Hair Oil, 250ml", cat:"Beauty & Household", price:3.99, icon:"", image:"assets/products/Coconut-oil-hair.jpg", description:"Coconut hair oil, 250ml, nourishing oil for healthy hair and scalp." },
+
+    { id:27, name:"10,000mAh Power Bank", cat:"Gadgets & Accessories", price:17.99, icon:"", tag:"New", image:"assets/products/Power-bank.jpeg", description:"10,000mAh portable power bank — fast-charges your phone on the go." },
+    { id:28, name:"Wireless Bluetooth Earbuds", cat:"Gadgets & Accessories", price:14.99, old:19.99, icon:"", tag:"Sale", image:"assets/products/Earbud.jpg", description:"Wireless Bluetooth earbuds with clear sound and a compact charging case." },
+    { id:29, name:"Fast-Charge USB-C Cable, 1m", cat:"Gadgets & Accessories", price:3.99, icon:"", image:"assets/products/USB-cable.jpeg", description:"Fast-charge USB-C cable, 1m length, durable braided design." },
+    { id:30, name:"20W Dual-Port Wall Charger", cat:"Gadgets & Accessories", price:8.99, icon:"", image:"assets/products/Wall-charger.jpg", description:"20W dual-port wall charger for fast charging two devices at once." },
+    { id:31, name:"Phone Ring Light Stand", cat:"Gadgets & Accessories", price:10.99, icon:"", image:"assets/products/1.jpg", description:"Adjustable phone ring light stand, ideal for calls, streaming, and content creation." },
+    { id:32, name:"Bluetooth Mini Speaker", cat:"Gadgets & Accessories", price:16.99, icon:"", tag:"New", image:"assets/products/Speakers-2026.jpg", description:"Compact Bluetooth mini speaker with rich sound and long battery life." },
+    { id:33, name:"Universal Phone Case, Assorted", cat:"Gadgets & Accessories", price:4.99, icon:"", image:"assets/products/is.jpeg", description:"Universal phone case, assorted styles, protective and lightweight." },
+    { id:34, name:"Smartwatch, Fitness Band", cat:"Gadgets & Accessories", price:24.99, icon:"⌚", image:"assets/products/BEST-SMARTWATCH.jpg", description:"Fitness smartwatch with activity tracking, notifications, and long battery life." },
+    
+    { id:35, name:"Amala and Ewedu", cat:"Ready Meals", price:9.99, icon:"", image:"assets/products/Amala.jpeg", description:"Freshly prepared amala served with rich ewedu soup — a comforting Nigerian classic." },
+    { id:36, name:"Nigerian Jollof Rice", cat:"Ready Meals", price:8.99, icon:"", image:"assets/products/jollof-rice.jpeg", description:"Smoky, well-seasoned jollof rice, ready to eat — a takeaway favourite." },
+    { id:37, name:"Moi Moi", cat:"Ready Meals", price:8.49, icon:"", image:"assets/products/moi-moi.jpeg", description:"Slow-cooked beans porridge served with steamed moi moi." },
+    { id:38, name:"Yellow Eba and Ofe Oha", cat:"Ready Meals", price:10.99, icon:"",image:"assets/products/yellow-eba.jpeg", description:"Smooth yellow eba paired with a hearty ofe oha soup, ready to enjoy." },
+    { id:39, name:"Tuwo Shinkafa", cat:"Ready Meals", price:9.49, icon:"", image:"assets/products/tuwo.jpeg", description:"Soft rice-based tuwo, a Northern Nigerian staple, ready-prepared." },
+    { id:40, name:"Iru / Ogiri", cat:"Cupboard Food", price:3.99, icon:"", image:"assets/products/Iru-locust-beans.png", description:"Fermented locust bean seasoning for authentic depth of flavour in soups and stews." },
+    { id:41, name:"Sardines in Tomato Sauce", cat:"Cupboard Food", price:1.99, icon:"", image:"assets/products/sardine.jpeg", description:"Tinned sardines in rich tomato sauce — a quick, versatile pantry staple." },
+    { id:42, name:"Spaghetti, 500g", cat:"Cupboard Food", price:1.49, icon:"", image:"assets/products/spag.jpeg", description:"Classic dried spaghetti, 500g pack, a kitchen essential." },
+    { id:43, name:"Nestle Golden Morn Grainsmart", cat:"Cupboard Food", price:6.99, icon:"", image:"assets/products/gplden-morn.jpg", description:"Fortified maize-based cereal, a nourishing breakfast staple." },
+    { id:44, name:"Skippy Peanut Butter Smooth Creamy, 462g", cat:"Cupboard Food", price:4.49, icon:"", image:"assets/products/skippy.jpeg", description:"Smooth, creamy peanut butter, 462g jar — great for spreading or cooking." },
+    { id:45, name:"Spice Supreme Jollof Rice Seasoning Powder, 156g", cat:"Cupboard Food", price:2.99, icon:"", image:"assets/products/jollof-seasoning.jpg", description:"Ready-blended seasoning powder for authentic, flavourful jollof rice." },
+    { id:46, name:"Quaker White Oats Tin, 420g", cat:"Cupboard Food", price:3.49, icon:"", image:"assets/products/quaker.jpeg", description:"Wholesome white oats in a 420g tin, ideal for a hearty breakfast." },
+    { id:47, name:"Checkers Custard Powder Banana, 2kg", cat:"Cupboard Food", price:7.99, icon:"", image:"assets/products/custard.jpg", description:"Banana-flavoured custard powder, 2kg catering pack." },
+    { id:48, name:"Dangote Refined Granulated Sugar, 1kg", cat:"Cupboard Food", price:2.49, icon:"", image:"assets/products/sugar.jpg", description:"Refined granulated sugar, 1kg bag, for everyday cooking and baking." },
+    { id:49, name:"Exeter Corned Beef", cat:"Cupboard Food", price:3.29, icon:"", image:"assets/products/corn-beef.jpeg", description:"Tinned corned beef, ready to use in stews, sandwiches, or fried rice." },
+    { id:50, name:"Pure Honey", cat:"Cupboard Food", price:5.99, icon:"", image:"assets/products/honey.jpeg", description:"Natural pure honey, unprocessed, for everyday sweetness and cooking." },
+  ];
+
+  const fmt = n => "£" + n.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  // ---------- State ----------
+  // Each cart line is its own item so the same product can be added twice
+  // with different replacement/instruction choices without overwriting.
+  // { lineId, productId, qty, replacement, note }
+  let cart = [];
+  let lineIdCounter = 1;
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+  }
+
+  const REPLACEMENT_LABELS = {
+    similar: "Replace with a similar item",
+    contact: "Contact me before replacing",
+    refund: "Refund this item / Do not replace"
+  };
+
+  function boot(){
+  // ---------- Render: nav ----------
+  const catNav = document.getElementById("catNav");
+  CATEGORIES.forEach(c=>{
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = "#";
+    a.textContent = c.name;
+    a.dataset.cat = c.name;
+    if(c.featured) a.classList.add("gadgets");
+    catNav.appendChild(li);
+    li.appendChild(a);
+  });
+
+  // ---------- Render: category grid ----------
+  const catGrid = document.getElementById("catGrid");
+  CATEGORIES.forEach(c=>{
+    const count = PRODUCTS.filter(p=>p.cat===c.name).length;
+    const div = document.createElement("div");
+    div.className = "cat-card" + (c.featured ? " gadgets" : "") + (c.image ? " has-image" : "");
+    div.innerHTML = c.image
+      ? `
+        <img src="${c.image}" alt="${c.name}">
+        <div>
+          <h3>${c.name}</h3>
+          <span class="cat-count">${count} items</span>
+        </div>`
+      : `
+        <span class="cat-icon">${c.icon}</span>
+        <div>
+          <h3>${c.name}</h3>
+          <span class="cat-count">${count} items</span>
+        </div>`;
+    div.addEventListener("click", ()=>filterAndScroll(c.name));
+    catGrid.appendChild(div);
+  });
+
+  // ---------- Render: footer category list ----------
+  const footCatList = document.getElementById("footCatList");
+  CATEGORIES.forEach(c=>{
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = "#";
+    a.textContent = c.name;
+    a.addEventListener("click", (e)=>{ e.preventDefault(); filterAndScroll(c.name); });
+    li.appendChild(a);
+    footCatList.appendChild(li);
+  });
+
+  // ---------- Product card builder ----------
+  function productCard(p){
+    const card = document.createElement("div");
+    card.className = "prod-card";
+    const media = p.image
+      ? `<img src="${p.image}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;">`
+      : `<span style="font-size:44px;">${p.icon}</span>`;
+    card.innerHTML = `
+      <div class="prod-media">
+        ${p.tag ? `<span class="tag">${p.tag}</span>` : ""}
+        ${media}
+      </div>
+      <div class="prod-body">
+        <span class="cat-label">${p.cat}</span>
+        <h4>${p.name}</h4>
+        <div class="prod-foot">
+          <div class="price-block">
+            ${p.old ? `<span class="price-old">${fmt(p.old)}</span>` : ""}
+            <span class="price">${fmt(p.price)}</span>
+          </div>
+          <button class="add-btn" aria-label="Add ${p.name} to basket" data-id="${p.id}">+</button>
+        </div>
+      </div>`;
+    card.querySelector(".add-btn").addEventListener("click", ()=>openProductOptions(p.id));
+
+    // Make the product image clickable too, opening the same product-options step.
+    const productImage = card.querySelector(".prod-media img");
+    if(productImage){
+      productImage.style.cursor = "pointer";
+      productImage.setAttribute("role", "button");
+      productImage.setAttribute("tabindex", "0");
+      productImage.setAttribute("aria-label", `Add ${p.name} to basket`);
+      productImage.addEventListener("click", ()=>openProductOptions(p.id));
+      productImage.addEventListener("keydown", e=>{
+        if(e.key === "Enter" || e.key === " "){
+          e.preventDefault();
+          openProductOptions(p.id);
+        }
+      });
+    }
+
+    return card;
+  }
+
+  // ---------- Render: featured (best sellers, mix) ----------
+  const featuredIds = [1,27,8,17,28,13,9,32];
+  const featuredGrid = document.getElementById("featuredGrid");
+  featuredIds.forEach(id=>{
+    const p = PRODUCTS.find(x=>x.id===id);
+    if(p) featuredGrid.appendChild(productCard(p));
+  });
+
+  // ---------- Render: gadgets section ----------
+  const gadgetsGrid = document.getElementById("gadgetsGrid");
+  PRODUCTS.filter(p=>p.cat==="Gadgets & Accessories").forEach(p=>{
+    gadgetsGrid.appendChild(productCard(p));
+  });
+
+  // ---------- Render: all products (filterable) ----------
+  const allGrid = document.getElementById("allGrid");
+  const catalogueTitle = document.getElementById("catalogueTitle");
+  function renderAll(filterCat, searchTerm){
+    allGrid.innerHTML = "";
+    let list = PRODUCTS;
+    if(filterCat && filterCat !== "all"){
+      list = list.filter(p=>p.cat===filterCat);
+      catalogueTitle.textContent = filterCat;
+    } else {
+      catalogueTitle.textContent = "All products";
+    }
+    if(searchTerm){
+      const t = searchTerm.toLowerCase();
+      list = list.filter(p=>p.name.toLowerCase().includes(t) || p.cat.toLowerCase().includes(t));
+      catalogueTitle.textContent = `Results for "${searchTerm}"`;
+    }
+    if(list.length===0){
+      allGrid.innerHTML = `<p style="grid-column:1/-1;color:#888;padding:20px 0;">No products found. Try another search or category.</p>`;
+      return;
+    }
+    list.forEach(p=>allGrid.appendChild(productCard(p)));
+  }
+  renderAll();
+
+  function filterAndScroll(catName){
+    renderAll(catName);
+    document.getElementById("allProducts").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  document.querySelectorAll('[data-cat]').forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      e.preventDefault();
+      filterAndScroll(el.dataset.cat);
+    });
+  });
+
+  // ---------- Search ----------
+  document.getElementById("searchBtn").addEventListener("click", runSearch);
+  document.getElementById("searchInput").addEventListener("keydown", e=>{
+    if(e.key==="Enter") runSearch();
+  });
+  function runSearch(){
+    const val = document.getElementById("searchInput").value.trim();
+    if(!val) return;
+    renderAll(null, val);
+    document.getElementById("allProducts").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  // ---------- Cart ----------
+  const cartDrawer = document.getElementById("cartDrawer");
+  const overlay = document.getElementById("overlay");
+  const cartItemsEl = document.getElementById("cartItems");
+  const cartCountEl = document.getElementById("cartCount");
+  const cartTotalEl = document.getElementById("cartTotal");
+  const toast = document.getElementById("toast");
+  let toastTimer;
+
+  function changeQty(lineId, delta){
+    const line = cart.find(l=>l.lineId===lineId);
+    if(!line) return;
+    line.qty += delta;
+    if(line.qty <= 0) cart = cart.filter(l=>l.lineId!==lineId);
+    renderCart();
+  }
+  function removeItem(lineId){
+    cart = cart.filter(l=>l.lineId!==lineId);
+    renderCart();
+  }
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove("show"), 1800);
+  }
+
+  function renderCart(){
+    let totalQty = 0, totalPrice = 0;
+    cartItemsEl.innerHTML = "";
+    if(cart.length === 0){
+      cartItemsEl.innerHTML = `<div class="cart-empty">Your basket is empty.<br>Add something to get started.</div>`;
+    } else {
+      cart.forEach(line=>{
+        const p = PRODUCTS.find(x=>x.id===line.productId);
+        if(!p) return;
+        totalQty += line.qty;
+        totalPrice += line.qty * p.price;
+        const metaBits = [];
+        if(line.brand) metaBits.push(`<div><strong>Brand:</strong> ${escapeHtml(line.brand)}</div>`);
+        if(line.replacement) metaBits.push(`<div><strong>If unavailable:</strong> ${escapeHtml(REPLACEMENT_LABELS[line.replacement] || line.replacement)}</div>`);
+        if(line.note) metaBits.push(`<div><strong>Note:</strong> ${escapeHtml(line.note)}</div>`);
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        row.innerHTML = `
+          <div class="ci-thumb">${p.image ? `<img src="${p.image}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;">` : p.icon}</div>
+          <div class="ci-body">
+            <h5>${p.name}</h5>
+            <span class="ci-unit-price">${fmt(p.price)}</span>
+            ${metaBits.length ? `<div class="ci-meta">${metaBits.join("")}<button type="button" class="ci-edit-options">Edit options</button></div>` : `<button type="button" class="ci-edit-options" style="margin-top:6px;">Add replacement/note</button>`}
+            <div class="ci-controls">
+              <button class="ci-remove" aria-label="Remove item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.8 12.2a2 2 0 0 1-2 1.8H9.8a2 2 0 0 1-2-1.8L7 7"/></svg></button>
+              <div class="ci-qty-row">
+                <button class="qty-minus" aria-label="Decrease quantity">–</button>
+                <span class="qty">${line.qty}</span>
+                <button class="qty-plus" aria-label="Increase quantity">+</button>
+              </div>
+            </div>
+          </div>`;
+        row.querySelector(".qty-minus").addEventListener("click", ()=>changeQty(line.lineId,-1));
+        row.querySelector(".qty-plus").addEventListener("click", ()=>changeQty(line.lineId,1));
+        row.querySelector(".ci-remove").addEventListener("click", ()=>removeItem(line.lineId));
+        row.querySelector(".ci-edit-options").addEventListener("click", ()=>openProductOptions(line.productId, line.lineId));
+        cartItemsEl.appendChild(row);
+      });
+    }
+    cartCountEl.textContent = totalQty;
+    cartTotalEl.textContent = fmt(totalPrice);
+    document.getElementById("cartSummaryLine").textContent = `${cart.length} item(s) in cart`;
+  }
+  renderCart();
+
+  // ---------- Product options modal (shown before anything is added to the basket) ----------
+  const productOptionsOverlay = document.getElementById("productOptionsOverlay");
+  let poProduct = null;
+  let poQty = 1;
+  let poEditingLineId = null; // set when editing an existing cart line instead of adding a new one
+
+  function openProductOptions(productId, editingLineId){
+    poProduct = PRODUCTS.find(p=>p.id===productId);
+    if(!poProduct) return;
+    poEditingLineId = editingLineId || null;
+    const existingLine = poEditingLineId ? cart.find(l=>l.lineId===poEditingLineId) : null;
+
+    poQty = existingLine ? existingLine.qty : 1;
+    document.getElementById("poThumb").innerHTML = poProduct.image
+      ? `<img src="${poProduct.image}" alt="${poProduct.name}">`
+      : `<span>${poProduct.icon||""}</span>`;
+    document.getElementById("poName").textContent = poProduct.name;
+    document.getElementById("poUnitPrice").textContent = fmt(poProduct.price) + " each";
+    const descField = document.getElementById("poDescriptionField");
+    if(poProduct.description){
+      document.getElementById("poDescription").textContent = poProduct.description;
+      descField.style.display = "";
+    } else {
+      descField.style.display = "none";
+    }
+    const brandField = document.getElementById("poBrandField");
+    const brandSelect = document.getElementById("poBrand");
+    const brands = Array.isArray(poProduct.brands) ? poProduct.brands.map(b => String(b).trim()).filter(Boolean) : [];
+    if(brands.length){
+      brandField.style.display = "";
+      brandSelect.innerHTML = `<option value="">Please select a brand...</option>` + brands.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("");
+      brandSelect.value = existingLine ? (existingLine.brand || "") : "";
+    } else {
+      brandField.style.display = "none";
+      brandSelect.innerHTML = `<option value="">Please select a brand...</option>`;
+      brandSelect.value = "";
+    }
+    document.getElementById("poReplacement").value = existingLine ? existingLine.replacement : "";
+    document.getElementById("poNote").value = existingLine ? existingLine.note : "";
+    document.querySelector("#productOptionsOverlay .modal-head h3").textContent = existingLine ? "Edit item options" : "Product options";
+    updatePoQtyUI();
+    productOptionsOverlay.classList.add("active");
+  }
+  function closeProductOptions(){
+    productOptionsOverlay.classList.remove("active");
+    poProduct = null;
+    poEditingLineId = null;
+  }
+  function updatePoQtyUI(){
+    document.getElementById("poQtyValue").textContent = poQty;
+    const lineTotal = poProduct.price * poQty;
+    document.getElementById("poLineTotal").textContent = `${poQty} × ${fmt(poProduct.price)} = ${fmt(lineTotal)}`;
+    document.getElementById("poConfirmBtn").textContent = poEditingLineId
+      ? `Update item: ${fmt(lineTotal)}`
+      : `Add ${poQty} to basket: ${fmt(lineTotal)}`;
+  }
+  document.getElementById("poQtyMinus").addEventListener("click", ()=>{
+    if(poQty > 1){ poQty--; updatePoQtyUI(); }
+  });
+  document.getElementById("poQtyPlus").addEventListener("click", ()=>{
+    poQty++; updatePoQtyUI();
+  });
+  document.querySelectorAll("[data-close-product-options]").forEach(el=>{
+    el.addEventListener("click", closeProductOptions);
+  });
+  productOptionsOverlay.addEventListener("click", e=>{
+    if(e.target===productOptionsOverlay) closeProductOptions();
+  });
+
+  document.getElementById("poConfirmBtn").addEventListener("click", ()=>{
+    if(!poProduct) return;
+    const replacement = document.getElementById("poReplacement").value;
+    const note = document.getElementById("poNote").value.trim().slice(0, 300);
+    const availableBrands = Array.isArray(poProduct.brands) ? poProduct.brands.map(b => String(b).trim()).filter(Boolean) : [];
+    const brand = document.getElementById("poBrand").value.trim();
+
+    if(availableBrands.length && !brand){
+      showToast("Please select a brand");
+      document.getElementById("poBrand").focus();
+      return;
+    }
+    if(availableBrands.length && !availableBrands.includes(brand)){
+      showToast("Please select a valid brand");
+      return;
+    }
+
+    if(poEditingLineId){
+      // Editing an existing basket line from the cart page — update it in place.
+      const line = cart.find(l=>l.lineId===poEditingLineId);
+      if(line){
+        line.qty = poQty;
+        line.brand = brand;
+        line.replacement = replacement;
+        line.note = note;
+      }
+      renderCart();
+      closeProductOptions();
+      showToast("Item updated");
+      return;
+    }
+
+    // Merge only if an identical line (same product, same replacement choice,
+    // same instruction) already exists — otherwise it's a distinct decision
+    // and must stay its own basket line, per spec.
+    const existing = cart.find(l =>
+      l.productId === poProduct.id && l.brand === brand && l.replacement === replacement && l.note === note
+    );
+    if(existing){
+      existing.qty += poQty;
+    } else {
+      cart.push({
+        lineId: "line-" + (lineIdCounter++),
+        productId: poProduct.id,
+        qty: poQty,
+        brand,
+        replacement,
+        note
+      });
+    }
+    renderCart();
+    closeProductOptions();
+    openCart();
+    showToast(`Added ${poQty} to basket`);
+  });
+
+
+  document.getElementById("cartToggle").addEventListener("click", openCart);
+  document.getElementById("cartClose").addEventListener("click", closeCart);
+  document.getElementById("continueShoppingBtn").addEventListener("click", closeCart);
+  overlay.addEventListener("click", closeCart);
+  function openCart(){ cartDrawer.classList.add("active"); overlay.classList.add("active"); }
+  function closeCart(){ cartDrawer.classList.remove("active"); overlay.classList.remove("active"); }
+
+  // Order-level note applies to the whole order, kept separate from each
+  // item's own special instruction captured in the product-options step.
+  let orderNote = "";
+  document.getElementById("orderNoteInput").addEventListener("input", e=>{
+    orderNote = e.target.value.slice(0, 300);
+  });
+
+  document.getElementById("checkoutBtn").addEventListener("click", ()=>{
+    if(cart.length === 0){
+      showToast("Your basket is empty");
+      return;
+    }
+    if(!currentUser){
+      closeCart();
+      openAccountModal();
+      showToast("Sign in to check out");
+      return;
+    }
+    closeCart();
+    openCheckoutModal();
+  });
+
+  document.getElementById("nlForm").addEventListener("submit", e=>{
+    e.preventDefault();
+    showToast("Subscribed! Watch your inbox for 5% off");
+    e.target.reset();
+  });
+
+  // ---------- Accounts ----------
+  const accountOverlay = document.getElementById("accountModalOverlay");
+  const loggedOutView = document.getElementById("accountLoggedOut");
+  const loggedInView = document.getElementById("accountLoggedIn");
+
+  function openAccountModal(){
+    accountOverlay.classList.add("active");
+    if(currentUser){ loadMyOrders(); }
+    else {
+      document.getElementById("forgotPasswordForm").style.display = "none";
+      document.getElementById("loginForm").style.display = "flex";
+    }
+  }
+  function closeAccountModal(){ accountOverlay.classList.remove("active"); }
+  document.getElementById("accountToggle").addEventListener("click", openAccountModal);
+  document.querySelectorAll("[data-close-account]").forEach(el=>el.addEventListener("click", closeAccountModal));
+  accountOverlay.addEventListener("click", e=>{ if(e.target===accountOverlay) closeAccountModal(); });
+
+  document.querySelectorAll("[data-auth-tab]").forEach(tab=>{
+    tab.addEventListener("click", ()=>{
+      document.querySelectorAll("[data-auth-tab]").forEach(t=>t.classList.remove("active"));
+      tab.classList.add("active");
+      const isLogin = tab.dataset.authTab === "login";
+      document.getElementById("loginForm").style.display = isLogin ? "flex" : "none";
+      document.getElementById("registerForm").style.display = isLogin ? "none" : "flex";
+      document.getElementById("forgotPasswordForm").style.display = "none";
+    });
+  });
+
+  // ---------- Forgot password ----------
+  document.getElementById("forgotPasswordLink").addEventListener("click", ()=>{
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("forgotPasswordForm").style.display = "flex";
+    document.getElementById("forgotError").textContent = "";
+    document.getElementById("forgotSuccess").style.display = "none";
+    document.getElementById("forgotEmail").value = document.getElementById("loginEmail").value;
+  });
+  document.getElementById("backToLoginLink").addEventListener("click", ()=>{
+    document.getElementById("forgotPasswordForm").style.display = "none";
+    document.getElementById("loginForm").style.display = "flex";
+  });
+  document.getElementById("forgotSubmit").addEventListener("click", async ()=>{
+    const email = document.getElementById("forgotEmail").value.trim();
+    const errEl = document.getElementById("forgotError");
+    const okEl = document.getElementById("forgotSuccess");
+    errEl.textContent = "";
+    okEl.style.display = "none";
+    if(!email){ errEl.textContent = "Enter your email address"; return; }
+    const btn = document.getElementById("forgotSubmit");
+    btn.disabled = true; btn.textContent = "Sending…";
+    try{
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Something went wrong"; return; }
+      okEl.textContent = data.message || "If an account exists for this email, a password reset link has been sent.";
+      okEl.style.display = "";
+      // Dev-only convenience: if no email service is configured, the server
+      // includes the reset link directly in the response so the flow can
+      // still be tested locally. It never does this in production or when
+      // email sending is actually configured.
+      if(data.devResetUrl){
+        okEl.innerHTML += `<br><a href="${data.devResetUrl}" style="color:var(--indigo);">[dev only] Open reset link</a>`;
+      }
+    }catch(e){ errEl.textContent = "Network error — try again"; }
+    finally{ btn.disabled = false; btn.textContent = "Send reset link"; }
+  });
+
+  // Referral code picked up from a link like /?ref=MSWIFT-XXXXXX — prefilled
+  // into the registration form so a new customer doesn't have to type it in.
+  (function prefillReferralCode(){
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if(ref) document.getElementById("regReferralCode").value = ref;
+    
+  })();
+
+  // ---------- Rewards (inside the account modal) ----------
+  document.querySelectorAll("[data-account-tab]").forEach(tab=>{
+    tab.addEventListener("click", ()=>{
+      document.querySelectorAll("[data-account-tab]").forEach(t=>t.classList.remove("active"));
+      tab.classList.add("active");
+      const showRewards = tab.dataset.accountTab === "rewards";
+      document.getElementById("accountOrdersPanel").style.display = showRewards ? "none" : "block";
+      document.getElementById("accountRewardsPanel").style.display = showRewards ? "block" : "none";
+      if(showRewards) loadRewards();
+    });
+  });
+
+  async function loadRewards(){
+    try{
+      const res = await fetch("/api/rewards/me");
+      if(!res.ok) return;
+      const data = await res.json();
+
+      document.getElementById("rwPoints").textContent = data.balance;
+      const voucherValue = data.howToEarn.voucherPointsPerPound
+        ? Math.floor(data.balance / data.howToEarn.voucherPointsPerPound)
+        : 0;
+      document.getElementById("rwVoucherValue").textContent = fmt(voucherValue);
+
+      document.getElementById("rwReferralCode").textContent = data.referralCode;
+      document.getElementById("rwReferralLink").value = data.referralLink;
+      document.getElementById("rwReferralStatus").textContent =
+        `${data.referrals.rewarded} rewarded referral${data.referrals.rewarded===1?"":"s"}` +
+        (data.referrals.pending ? `, ${data.referrals.pending} pending their first order` : "");
+
+      const earn = data.howToEarn;
+      document.getElementById("rwHowToEarn").innerHTML = `
+        <li>+${earn.accountCreation} points when you create an account</li>
+        <li>£${earn.purchaseAmountPerPoint} spent = 1 point on completed orders</li>
+        <li>+${earn.referral} points when someone you refer completes their first order</li>
+        <li>+${earn.review} points for a product review</li>
+        <li>+${earn.repeatPurchaseBonus} bonus points on repeat orders</li>
+        <li>${earn.voucherPointsPerPound} points = £1 voucher</li>`;
+
+      const vBox = document.getElementById("rwVouchers");
+      vBox.innerHTML = data.vouchers.length === 0 ? "" : data.vouchers.map(v => `
+        <div class="voucher-row">
+          <span class="voucher-code">${v.code} — ${fmt(v.value)}</span>
+          <span class="voucher-status">${v.status}</span>
+        </div>`).join("");
+
+      const hBox = document.getElementById("rwHistory");
+      hBox.innerHTML = data.transactions.length === 0 ? `<div class="no-orders">No points activity yet.</div>` :
+        data.transactions.map(t => `
+          <div class="rewards-history-row">
+            <span>${new Date(t.createdAt).toLocaleDateString("en-GB")} — ${t.reason}</span>
+            <span class="${t.points >= 0 ? "points-pos" : "points-neg"}">${t.points >= 0 ? "+" : ""}${t.points}</span>
+          </div>`).join("");
+    }catch(e){ /* rewards panel simply stays at defaults if this fails */ }
+  }
+
+  document.getElementById("rwCopyCode").addEventListener("click", ()=>{
+    const code = document.getElementById("rwReferralCode").textContent;
+    navigator.clipboard?.writeText(code).then(()=> showToast("Referral code copied"));
+  });
+  document.getElementById("rwCopyLink").addEventListener("click", ()=>{
+    const link = document.getElementById("rwReferralLink").value;
+    navigator.clipboard?.writeText(link).then(()=> showToast("Referral link copied"));
+  });
+
+  document.getElementById("rwRedeemBtn").addEventListener("click", async ()=>{
+    const points = parseInt(document.getElementById("rwRedeemPoints").value, 10);
+    const errEl = document.getElementById("rwRedeemError");
+    errEl.textContent = "";
+    if(!points || points <= 0){ errEl.textContent = "Enter how many points to redeem"; return; }
+    try{
+      const res = await fetch("/api/rewards/redeem", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ points })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Could not redeem points"; return; }
+      document.getElementById("rwRedeemPoints").value = "";
+      showToast(`Voucher ${data.voucher.code} created — ${fmt(data.voucher.value)}`);
+      loadRewards();
+    }catch(e){ errEl.textContent = "Network error — try again"; }
+  });
+
+  function refreshAccountUI(){
+  
+    const accountLabel = document.getElementById("accountLabel");
+    if(currentUser){
+      accountLabel.textContent = currentUser.name.split(" ")[0];
+      loggedOutView.style.display = "none";
+      loggedInView.style.display = "flex";
+      document.getElementById("accountModalTitle").textContent = "Your account";
+      document.getElementById("accountName").textContent = currentUser.name;
+      document.getElementById("accountEmail").textContent = currentUser.email;
+    } else {
+      accountLabel.textContent = "Account";
+      loggedOutView.style.display = "flex";
+      loggedInView.style.display = "none";
+      document.getElementById("accountModalTitle").textContent = "Sign in";
+    }
+  }
+
+  async function loadMyOrders(){
+    const box = document.getElementById("myOrders");
+    box.innerHTML = "Loading…";
+    try{
+      const res = await fetch("/api/orders/mine");
+      const data = await res.json();
+      const orders = data.orders || [];
+      if(orders.length === 0){ box.innerHTML = `<div class="no-orders">No orders yet.</div>`; return; }
+      box.innerHTML = orders.slice().reverse().map(o => `
+        <div class="order-row">
+          <span>${new Date(o.createdAt).toLocaleDateString("en-GB")} — ${fmt(o.total)}</span>
+          <span class="status">${o.status.replace("_"," ")}</span>
+        </div>`).join("");
+    }catch(e){ box.innerHTML = `<div class="no-orders">Couldn't load your orders.</div>`; }
+  }
+
+  document.getElementById("loginSubmit").addEventListener("click", async ()=>{
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const errEl = document.getElementById("loginError");
+    errEl.textContent = "";
+    try{
+      const res = await fetch("/api/auth/login", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Could not sign in"; return; }
+      currentUser = data.user;
+      refreshAccountUI();
+      showToast(`Welcome back, ${currentUser.name.split(" ")[0]}`);
+    }catch(e){ errEl.textContent = "Network error — try again"; }
+  });
+
+  document.getElementById("registerSubmit").addEventListener("click", async ()=>{
+    const name = document.getElementById("regName").value.trim();
+    const email = document.getElementById("regEmail").value.trim();
+    const password = document.getElementById("regPassword").value;
+    const referralCode = document.getElementById("regReferralCode").value.trim();
+    const errEl = document.getElementById("regError");
+    errEl.textContent = "";
+    try{
+      const res = await fetch("/api/auth/register", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ name, email, password, referralCode })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Could not create account"; return; }
+      currentUser = data.user;
+      refreshAccountUI();
+      showToast(`Welcome, ${currentUser.name.split(" ")[0]}`);
+    }catch(e){ errEl.textContent = "Network error — try again"; }
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", async ()=>{
+    await fetch("/api/auth/logout", { method:"POST" }).catch(()=>{});
+    currentUser = null;
+    refreshAccountUI();
+    closeAccountModal();
+    showToast("Signed out");
+  });
+
+  // ---------- Checkout ----------
+  const checkoutOverlay = document.getElementById("checkoutModalOverlay");
+  let checkoutRewards = { balance: 0, voucherPointsPerPound: 10 };
+
+  function checkoutCartTotal(){
+    let total = 0;
+    cart.forEach(line=>{ const p = PRODUCTS.find(x=>x.id===line.productId); if(p) total += p.price * line.qty; });
+    return Math.round(total * 100) / 100;
+  }
+
+  function pointsToValue(points){
+    return Math.round((points / (checkoutRewards.voucherPointsPerPound || 10)) * 100) / 100;
+  }
+
+  function updateCheckoutSummary(){
+    const total = checkoutCartTotal();
+    const toggle = document.getElementById("usePointsToggle");
+    const input = document.getElementById("pointsToUseInput");
+    let pointsUsed = 0;
+
+    if(toggle.checked){
+      pointsUsed = Math.max(0, parseInt(input.value, 10) || 0);
+      pointsUsed = Math.min(pointsUsed, checkoutRewards.balance);
+      const maxUseful = Math.ceil(total * (checkoutRewards.voucherPointsPerPound || 10));
+      pointsUsed = Math.min(pointsUsed, maxUseful);
+      input.value = pointsUsed;
+    }
+    const pointsValue = Math.min(pointsToValue(pointsUsed), total);
+    const amountDue = Math.round((total - pointsValue) * 100) / 100;
+
+    document.getElementById("pointsPayApplied").textContent = pointsUsed > 0
+      ? `Applying ${pointsUsed} points = -${fmt(pointsValue)}`
+      : "";
+
+    const rows = [`<span>Order total</span><span>${fmt(total)}</span>`];
+    if(pointsUsed > 0){
+      rows.push(`<span>Points applied</span><span>-${fmt(pointsValue)}</span>`);
+      rows.push(`<span>Amount due</span><span>${fmt(amountDue)}</span>`);
+    }
+    document.getElementById("checkoutSummary").innerHTML = rows.join("");
+
+    const payMethodField = document.querySelector('input[name="payMethod"]').closest(".field");
+    const hint = document.getElementById("payMethodHint");
+    if(amountDue <= 0 && pointsUsed > 0){
+      payMethodField.style.display = "none";
+      hint.style.display = "";
+    } else {
+      payMethodField.style.display = "";
+      hint.style.display = "none";
+    }
+    return { total, pointsUsed, pointsValue, amountDue };
+  }
+
+  async function openCheckoutModal(){
+    document.getElementById("checkoutError").textContent = "";
+    document.getElementById("usePointsToggle").checked = false;
+    document.getElementById("pointsToUseInput").value = 0;
+    document.getElementById("pointsPayControls").style.display = "none";
+
+    try{
+      const res = await fetch("/api/rewards/me");
+      if(res.ok){
+        const data = await res.json();
+        checkoutRewards = { balance: data.balance || 0, voucherPointsPerPound: data.howToEarn.voucherPointsPerPound || 10 };
+      }
+    }catch(e){ /* points payment simply stays unavailable if this fails */ }
+
+    const pointsField = document.getElementById("pointsPayField");
+    if(checkoutRewards.balance > 0){
+      pointsField.style.display = "";
+      document.getElementById("pointsPayAvailable").textContent =
+        `You have ${checkoutRewards.balance} points (${fmt(pointsToValue(checkoutRewards.balance))})`;
+    } else {
+      pointsField.style.display = "none";
+    }
+    updateCheckoutSummary();
+    checkoutOverlay.classList.add("active");
+  }
+  function closeCheckoutModal(){ checkoutOverlay.classList.remove("active"); }
+  document.querySelectorAll("[data-close-checkout]").forEach(el=>el.addEventListener("click", closeCheckoutModal));
+  checkoutOverlay.addEventListener("click", e=>{ if(e.target===checkoutOverlay) closeCheckoutModal(); });
+
+  document.getElementById("usePointsToggle").addEventListener("change", e=>{
+    const controls = document.getElementById("pointsPayControls");
+    controls.style.display = e.target.checked ? "flex" : "none";
+    if(e.target.checked){
+      const total = checkoutCartTotal();
+      const maxUseful = Math.ceil(total * (checkoutRewards.voucherPointsPerPound || 10));
+      document.getElementById("pointsToUseInput").value = Math.min(checkoutRewards.balance, maxUseful);
+    } else {
+      document.getElementById("pointsToUseInput").value = 0;
+    }
+    updateCheckoutSummary();
+  });
+  document.getElementById("pointsToUseInput").addEventListener("input", updateCheckoutSummary);
+  document.getElementById("useMaxPointsBtn").addEventListener("click", ()=>{
+    const total = checkoutCartTotal();
+    const maxUseful = Math.ceil(total * (checkoutRewards.voucherPointsPerPound || 10));
+    document.getElementById("pointsToUseInput").value = Math.min(checkoutRewards.balance, maxUseful);
+    updateCheckoutSummary();
+  });
+
+  document.getElementById("placeOrderBtn").addEventListener("click", async ()=>{
+    const errEl = document.getElementById("checkoutError");
+    errEl.textContent = "";
+    const line1 = document.getElementById("addrLine1").value.trim();
+    const city = document.getElementById("addrCity").value.trim();
+    const postcode = document.getElementById("addrPostcode").value.trim();
+    if(!line1 || !city || !postcode){ errEl.textContent = "Fill in your delivery address"; return; }
+
+    const { pointsUsed, amountDue } = updateCheckoutSummary();
+    const paymentMethod = amountDue <= 0 && pointsUsed > 0
+      ? "points"
+      : document.querySelector('input[name="payMethod"]:checked').value;
+
+    const items = cart.map(line => ({
+      productId: line.productId,
+      qty: line.qty,
+      brand: line.brand || "",
+      replacement: line.replacement || "",
+      note: line.note || ""
+    }));
+    const btn = document.getElementById("placeOrderBtn");
+    btn.disabled = true; btn.textContent = "Placing order…";
+    try{
+      const res = await fetch("/api/orders", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ items, paymentMethod, address: { line1, city, postcode }, orderNote, pointsToUse: pointsUsed })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Could not place order"; return; }
+      if(data.checkoutUrl){
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      cart = [];
+      orderNote = "";
+      document.getElementById("orderNoteInput").value = "";
+      renderCart();
+      closeCheckoutModal();
+      showToast("Order placed — thank you!");
+      loadRewards();
+    }catch(e){ errEl.textContent = "Network error — try again"; }
+    finally{ btn.disabled = false; btn.textContent = "Place order"; }
+  });
+
+  // Restores the logged-in state (name, points, orders) once data has
+  // loaded. Must run inside boot() — refreshAccountUI() and the DOM refs
+  // it uses (loggedOutView, loggedInView, etc.) are only in scope here.
+  refreshAccountUI();
+
+  // If we've just come back from a Stripe Checkout redirect, verify the
+  // payment server-side (points aren't deducted and the order isn't marked
+  // paid until this succeeds) — then clean the URL so a page refresh can't
+  // re-trigger it. Defined here (not at the outer scope) because it needs
+  // showToast()/loadRewards(), which only exist inside boot().
+  (async function confirmReturnFromCardCheckout(){
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("order");
+    const paid = params.get("paid");
+    const sessionId = params.get("session_id");
+    if(!orderId || !paid){ return; }
+
+    if(paid === "1" && sessionId && currentUser){
+      try{
+        const res = await fetch(`/api/orders/${orderId}/confirm-card-payment`, {
+          method: "POST", headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ sessionId })
+        });
+        const data = await res.json();
+        if(res.ok){
+          showToast("Payment confirmed — thank you!");
+          loadRewards();
+        } else {
+          showToast(data.error || "Could not confirm payment");
+        }
+      }catch(e){ /* leave the order as-is; admin can still see its real status */ }
+    } else if(paid === "0"){
+      showToast("Checkout was cancelled");
+    }
+
+    // Strip order/paid/session_id from the URL either way, so refreshing
+    // this page never re-fires the confirmation call.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("order");
+    url.searchParams.delete("paid");
+    url.searchParams.delete("session_id");
+    window.history.replaceState({}, "", url.toString());
+  })();
+  }
+
+  // ---------- Brand Flyers carousel ----------
+  function initFlyerCarousel(){
+    const section = document.getElementById("brandFlyersSection");
+    const carouselEl = document.getElementById("flyerCarousel");
+    const track = document.getElementById("flyerTrack");
+    const prevBtn = document.getElementById("flyerPrev");
+    const nextBtn = document.getElementById("flyerNext");
+    const dotsBox = document.getElementById("flyerDots");
+    const AUTOPLAY_MS = 5000;
+
+    let flyerList = [];
+    let current = 0;
+    let autoplayTimer = null;
+
+    function stopAutoplay(){ if(autoplayTimer){ clearInterval(autoplayTimer); autoplayTimer = null; } }
+    function startAutoplay(){
+      stopAutoplay();
+      if(flyerList.length > 1) autoplayTimer = setInterval(()=> goTo(current + 1), AUTOPLAY_MS);
+    }
+
+    function goTo(index){
+      if(flyerList.length === 0) return;
+      current = ((index % flyerList.length) + flyerList.length) % flyerList.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dotsBox.querySelectorAll(".flyer-dot").forEach((d,i)=> d.classList.toggle("active", i===current));
+    }
+
+    function render(){
+      if(flyerList.length === 0){ section.style.display = "none"; stopAutoplay(); return; }
+      section.style.display = "";
+      track.innerHTML = flyerList.map(f => `<div class="flyer-slide"><img src="${f.url}" alt="Brand flyer" loading="lazy"></div>`).join("");
+      const multi = flyerList.length > 1;
+      prevBtn.style.display = multi ? "flex" : "none";
+      nextBtn.style.display = multi ? "flex" : "none";
+      dotsBox.innerHTML = multi
+        ? flyerList.map((_, i) => `<button class="flyer-dot${i===0?" active":""}" data-dot="${i}" type="button" aria-label="Go to flyer ${i+1}"></button>`).join("")
+        : "";
+      dotsBox.querySelectorAll("[data-dot]").forEach(d => d.addEventListener("click", ()=>{ goTo(parseInt(d.dataset.dot,10)); startAutoplay(); }));
+      current = 0;
+      track.style.transform = "translateX(0%)";
+      if(multi) startAutoplay();
+    }
+
+    prevBtn.addEventListener("click", ()=>{ goTo(current-1); startAutoplay(); });
+    nextBtn.addEventListener("click", ()=>{ goTo(current+1); startAutoplay(); });
+    carouselEl.addEventListener("mouseenter", stopAutoplay);
+    carouselEl.addEventListener("mouseleave", startAutoplay);
+
+    // Swipe gestures (mobile) — only meaningful with more than one flyer.
+    let touchStartX = null;
+    carouselEl.addEventListener("touchstart", e=>{
+      if(flyerList.length <= 1) return;
+      touchStartX = e.touches[0].clientX;
+      stopAutoplay();
+    }, {passive:true});
+    carouselEl.addEventListener("touchend", e=>{
+      if(touchStartX === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if(Math.abs(dx) > 40) goTo(current + (dx < 0 ? 1 : -1));
+      touchStartX = null;
+      startAutoplay();
+    }, {passive:true});
+
+    fetch("/api/flyers")
+      .then(r => r.json())
+      .then(data => { flyerList = Array.isArray(data.flyers) ? data.flyers : []; render(); })
+      .catch(()=>{ /* section stays hidden (its default state) if this fails */ });
+  }
+
+  // ---------- Load live data from the server, then boot ----------
+  let currentUser = null;
+  Promise.all([
+    fetch('/api/products', {cache:'no-store'})
+      .then(r => { if(!r.ok) throw new Error('no live catalogue'); return r.json(); })
+      .then(data => {
+        if(Array.isArray(data.categories) && data.categories.length) CATEGORIES = data.categories;
+        if(Array.isArray(data.products) && data.products.length) PRODUCTS = data.products;
+      })
+      .catch(() => { /* server not reachable (e.g. opened as a local file) — use built-in defaults above */ }),
+    fetch('/api/auth/me').then(r=>r.json()).then(d=>{ currentUser = d.user || null; }).catch(()=>{})
+  ]).finally(() => { boot(); });
+  initFlyerCarousel();
+})();
+</script>
+</body>
+</html>
+ 

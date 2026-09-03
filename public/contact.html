@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact Us — MyShopSwift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<div class="utility-bar">
+  <div class="wrap">
+    <span>Free UK delivery on orders over £100</span>
+    <div class="ub-right">
+      <span>Phone: 0161 509 2397</span>
+      <span>GBP £</span>
+    </div>
+  </div>
+</div>
+
+<header class="site">
+  <div class="header-inner wrap">
+    <a href="index.html" class="logo">
+      <img src="assets/logo-cropped.jpg" alt="MyShopSwift">
+      <span class="tagline">Shop Easy.<br>Order Fast.<br>Delivered Swift</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Shop</a>
+      <a href="track-order.html">Track Order</a>
+      <a href="help.html">Help Center</a>
+      <a href="contact.html" class="active">Contact Us</a>
+    </nav>
+    <div class="header-actions">
+      <a href="index.html" class="icon-link" aria-label="Your account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+        Account
+      </a>
+      <a href="index.html" class="icon-link" aria-label="Your basket">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h2l2.4 12.4a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+        Basket
+      </a>
+    </div>
+  </div>
+</header>
+<div class="adire"></div>
+
+<section class="page-hero">
+  <div class="wrap">
+    <span class="eyebrow">Customer Care</span>
+    <h1>Contact Us</h1>
+    <p>Questions about an order, a product, or your account? Send us a message and we'll get back to you as soon as we can.</p>
+  </div>
+</section>
+
+<div class="wrap section" style="display:grid;grid-template-columns:1.3fr .7fr;gap:40px;align-items:start;">
+  <div>
+    <div class="section-head">
+      <span class="num">GET IN TOUCH</span>
+      <h2>Send us a message</h2>
+    </div>
+    <div class="form-success" id="contactSuccess">Thanks — your message has been sent. We'll reply to the email address you provided as soon as we can.</div>
+    <div id="contactFormWrap">
+      <div class="field"><label>Name</label><input type="text" id="cName"></div>
+      <div class="field"><label>Email</label><input type="email" id="cEmail"></div>
+      <div class="field"><label>Subject</label><input type="text" id="cSubject"></div>
+      <div class="field"><label>Message</label><textarea id="cMessage" rows="6"></textarea></div>
+      <p class="form-error" id="contactError"></p>
+      <button class="btn btn-dark" id="contactSubmit">Send message</button>
+    </div>
+  </div>
+  <div class="info-card">
+    <h3 style="font-size:15px;color:var(--indigo);margin-bottom:14px;">Customer service</h3>
+    <p style="font-size:13.5px;line-height:1.8;color:#444;margin:0 0 6px;">Phone: 0161 509 2397<br>Mon–Fri, 9am–6pm (UK time)</p>
+    <p style="font-size:13.5px;line-height:1.8;color:#444;margin:0 0 6px;">Email: support@myshopswift.co.uk</p>
+    <p style="font-size:13.5px;line-height:1.8;color:#444;margin:0;">For order-specific questions, have your order number ready — you can also check status any time on the <a href="track-order.html" style="color:var(--indigo);text-decoration:underline;">Track Order</a> page.</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="foot-logo">MyShopSwift</div>
+      <p class="small">Shop easy. Order fast. Delivered swift. English and Afro Caribbean groceries, provisions, and everyday gadgets — delivered across the UK.</p>
+    </div>
+    <div>
+      <h5>Shop</h5>
+      <ul>
+        <li><a href="index.html">All products</a></li>
+        <li><a href="index.html#featured">Best sellers</a></li>
+        <li><a href="index.html#gadgets">Gadgets &amp; Accessories</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Customer Care</h5>
+      <ul>
+        <li><a href="contact.html">Contact Us</a></li>
+        <li><a href="help.html">Help Center</a></li>
+        <li><a href="track-order.html">Track Order</a></li>
+        <li><a href="returns.html">Returns &amp; Refunds</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Company</h5>
+      <ul>
+        <li><a href="about.html">About Us</a></li>
+        <li><a href="careers.html">Careers</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="terms.html">Terms &amp; Conditions</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 MyShopSwift. All rights reserved.</span>
+    <span>Card • Cash on Delivery</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const errEl = document.getElementById("contactError");
+  const successEl = document.getElementById("contactSuccess");
+  const formWrap = document.getElementById("contactFormWrap");
+  document.getElementById("contactSubmit").addEventListener("click", async ()=>{
+    errEl.textContent = "";
+    const name = document.getElementById("cName").value.trim();
+    const email = document.getElementById("cEmail").value.trim();
+    const subject = document.getElementById("cSubject").value.trim();
+    const message = document.getElementById("cMessage").value.trim();
+    if(!name || !email || !subject || !message){ errEl.textContent = "Please fill in every field"; return; }
+    const btn = document.getElementById("contactSubmit");
+    btn.disabled = true; btn.textContent = "Sending…";
+    try{
+      const res = await fetch("/api/contact", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ name, email, subject, message })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Something went wrong — please try again"; return; }
+      formWrap.style.display = "none";
+      successEl.classList.add("show");
+    }catch(e){ errEl.textContent = "Network error — please try again"; }
+    finally{ btn.disabled = false; btn.textContent = "Send message"; }
+  });
+})();
+</script>
+
+</body>
+</html>

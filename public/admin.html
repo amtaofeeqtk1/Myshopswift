@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyShopSwift — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --indigo:#0F2A6B; --indigo-2:#0A1F52; --paper:#F7F9FC; --paper-2:#EBF0F8;
+    --ochre:#FF6B00; --rust:#C2410C; --green:#2F6E4E; --ink:#0F2A6B;
+    --line:rgba(27,31,59,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Work Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Poppins',sans-serif;font-weight:700;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  .adire{height:4px;width:100%;background:linear-gradient(90deg, var(--indigo) 0%, var(--indigo) 55%, var(--rust) 78%, var(--ochre) 100%);}
+
+  header{background:var(--indigo);color:var(--paper);}
+  .header-inner{max-width:1200px;margin:0 auto;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  .header-inner .brand{font-size:22px;font-family:'Poppins',sans-serif;}
+  .header-inner .brand span{color:var(--ochre);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:2px;}
+  .header-actions{display:flex;gap:10px;flex-wrap:wrap;}
+
+  .btn{border:1.5px solid transparent;padding:10px 18px;font-size:13px;font-weight:600;letter-spacing:.02em;}
+  .btn-primary{background:var(--ochre);color:var(--indigo);}
+  .btn-primary:hover{background:#c98f22;}
+  .btn-ghost{background:transparent;border-color:rgba(247,242,231,.5);color:var(--paper);}
+  .btn-ghost:hover{border-color:var(--paper);}
+  .btn-dark{background:var(--indigo);color:var(--paper);}
+  .btn-dark:hover{background:var(--rust);}
+  .btn-outline{background:transparent;border-color:var(--indigo);color:var(--indigo);}
+  .btn-outline:hover{background:var(--indigo);color:var(--paper);}
+  .btn-danger{background:transparent;border:1.5px solid var(--rust);color:var(--rust);}
+  .btn-danger:hover{background:var(--rust);color:#fff;}
+  .btn-sm{padding:6px 12px;font-size:12px;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  .status-bar{
+    background:var(--paper-2);border-bottom:1px solid var(--line);
+    font-size:12.5px;padding:10px 24px;
+  }
+  .status-bar .wrap{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;}
+  .status-dot.warn{background:var(--rust);}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px;}
+  main{padding:32px 0 60px;}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px;}
+  .tab-btn{
+    background:none;border:none;padding:12px 18px;font-size:14px;font-weight:600;
+    color:#888;border-bottom:2px solid transparent;
+  }
+  .tab-btn.active{color:var(--indigo);border-color:var(--rust);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap;}
+  .subtab-btn{background:none;border:none;padding:9px 14px;font-size:13px;font-weight:600;color:#888;border-bottom:2px solid transparent;}
+  .subtab-btn.active{color:var(--indigo);border-color:var(--rust);}
+  .subpanel{display:none;}
+  .subpanel.active{display:block;}
+
+  .stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+  .stat-card{background:#fff;border:1px solid var(--line);padding:16px;}
+  .stat-card .num{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:var(--indigo);}
+  .stat-card .label{font-size:11.5px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;}
+
+  .settings-form{background:#fff;border:1px solid var(--line);padding:20px;max-width:520px;}
+  .settings-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .settings-row:last-of-type{border-bottom:none;}
+  .settings-row label{font-size:13.5px;flex:1;}
+  .settings-row .settings-input-wrap{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#888;}
+  .settings-row input{width:80px;padding:8px 9px;border:1.5px solid var(--indigo);font-size:14px;text-align:right;}
+
+  .adjust-panel{background:#fff;border:1px solid var(--line);padding:18px;max-width:480px;margin-bottom:20px;}
+  .adjust-panel .field{margin-bottom:12px;}
+
+  .flyer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+  .flyer-card{background:#fff;border:1px solid var(--line);overflow:hidden;}
+  .flyer-card img{width:100%;aspect-ratio:16/7;object-fit:cover;display:block;background:var(--paper-2);}
+  .flyer-card-actions{display:flex;gap:6px;flex-wrap:wrap;padding:10px;}
+  .flyer-card-actions .btn-sm{padding:5px 9px;font-size:11.5px;}
+  .flyer-card-actions .btn:disabled{opacity:.35;cursor:not-allowed;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+  .toolbar h2{font-size:20px;}
+  select.filter{
+    padding:8px 10px;border:1.5px solid var(--indigo);background:#fff;font-size:13px;
+  }
+
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle;}
+  th{background:var(--paper-2);font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--rust);}
+  tr:last-child td{border-bottom:none;}
+  td.icon-cell{font-size:20px;width:40px;}
+  td.actions{display:flex;gap:8px;white-space:nowrap;}
+  .price-cell{font-family:'IBM Plex Mono',monospace;}
+  .price-old{color:#999;text-decoration:line-through;font-size:11.5px;margin-left:6px;}
+  .tag-pill{background:var(--rust);color:#fff;font-size:10px;padding:2px 7px;font-family:'IBM Plex Mono',monospace;}
+  .empty-row td{text-align:center;color:#888;padding:30px;}
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(27,31,59,.55);
+    display:none;align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal{
+    background:var(--paper);border:1px solid var(--indigo);width:100%;max-width:460px;
+    max-height:90vh;overflow-y:auto;
+  }
+  .modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .modal-head h3{font-size:18px;}
+  .modal-close{background:none;border:none;font-size:22px;color:var(--ink);}
+  .modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
+  .notif-filter-btn.active{background:var(--indigo);color:var(--paper);}
+  .notif-item{border:1px solid var(--line);padding:12px 14px;background:#fff;cursor:pointer;position:relative;}
+  .notif-item:hover{border-color:var(--indigo);}
+  .notif-item.unread{background:var(--paper-2);border-left:3px solid var(--rust);}
+  .notif-item .notif-title{font-size:13.5px;font-weight:600;margin-bottom:4px;padding-right:20px;}
+  .notif-item .notif-message{font-size:12px;color:#666;}
+  .notif-item .notif-time{font-size:10.5px;color:#999;font-family:'IBM Plex Mono',monospace;margin-top:6px;}
+  .notif-item .notif-dismiss{position:absolute;top:10px;right:10px;background:none;border:none;color:#999;font-size:15px;line-height:1;}
+  .notif-item .notif-dismiss:hover{color:var(--rust);}
+  .notif-empty{text-align:center;color:#888;font-size:13px;padding:30px 0;}
+  tr.notif-highlight{outline:2px solid var(--ochre);outline-offset:-2px;}
+  .field label{display:block;font-size:11.5px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--rust);margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:10px 11px;border:1.5px solid var(--indigo);background:#fff;font-size:14px;outline:none;
+  }
+  .field textarea{resize:vertical;min-height:60px;font-family:inherit;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+  .modal-foot{padding:16px 22px 22px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--line);}
+  .hint{font-size:11.5px;color:#888;margin-top:4px;}
+  .brand-entry{display:flex;gap:8px;align-items:center;}
+  .brand-entry input{flex:1;}
+  .brand-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+  .brand-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #d8d8d8;border-radius:999px;background:#f7f7f7;font-size:12px;}
+  .brand-tag button{border:0;background:none;cursor:pointer;font-size:16px;line-height:1;color:#777;padding:0;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--indigo);color:var(--paper);padding:12px 22px;font-size:13.5px;
+    opacity:0;transition:all .25s;z-index:120;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .file-input{display:none;}
+
+  @media (max-width:720px){
+    table, thead, tbody, th, td, tr{display:block;}
+    thead{display:none;}
+    tr{border:1px solid var(--line);margin-bottom:10px;background:#fff;}
+    td{border-bottom:none;display:flex;justify-content:space-between;gap:10px;padding:8px 12px;}
+    td::before{content:attr(data-label);font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rust);text-transform:uppercase;}
+    td.actions{justify-content:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">MyShopSwift<span>Admin — Catalogue Manager</span></div>
+    <div class="header-actions">
+      <input type="password" id="adminKey" placeholder="Admin key" style="padding:9px 10px;border:1.5px solid rgba(247,242,231,.5);background:transparent;color:var(--paper);font-size:13px;width:150px;">
+      <button class="btn btn-ghost btn-sm" id="notifBellBtn" aria-label="Notifications" style="position:relative;">
+        Notifications <span id="notifUnreadBadge" style="display:none;background:var(--rust);color:#fff;border-radius:50%;font-size:11px;padding:1px 6px;margin-left:4px;">0</span>
+      </button>
+      <button class="btn btn-primary btn-sm" id="publishBtn">Publish live</button>
+    </div>
+  </div>
+</header>
+<div class="adire"></div>
+
+<!-- Notification panel -->
+<div class="modal-overlay" id="notifOverlay">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-head">
+      <h3>Notifications</h3>
+      <button class="modal-close" id="notifCloseBtn">&times;</button>
+    </div>
+    <div style="padding:12px 22px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline btn-sm notif-filter-btn active" data-filter="all">All</button>
+        <button class="btn btn-outline btn-sm notif-filter-btn" data-filter="unread">Unread</button>
+      </div>
+      <button class="btn btn-outline btn-sm" id="notifMarkAllBtn">Mark all read</button>
+    </div>
+    <div id="notifDesktopPrompt" style="margin:14px 22px 0;padding:10px 12px;background:var(--paper-2);border:1px solid var(--line);font-size:12.5px;display:none;align-items:center;justify-content:space-between;gap:10px;">
+      <span>Get notified even when this tab isn't focused.</span>
+      <button class="btn btn-dark btn-sm" id="enableDesktopNotifBtn" style="white-space:nowrap;">Enable desktop notifications</button>
+    </div>
+    <div class="modal-body" id="notifList" style="max-height:420px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+
+<div class="status-bar">
+  <div class="wrap">
+    <span><span class="status-dot" id="statusDot"></span><span id="statusText">Loaded default catalogue</span></span>
+    <span style="color:#777;">Edits below are a working copy — nothing goes live until you enter the admin key and click <strong>Publish live</strong>.</span>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="products">Products</button>
+    <button class="tab-btn" data-tab="categories">Categories</button>
+    <button class="tab-btn" data-tab="orders">Orders</button>
+    <button class="tab-btn" data-tab="customers">Customers</button>
+    <button class="tab-btn" data-tab="rewards">Rewards</button>
+    <button class="tab-btn" data-tab="flyers">Flyers</button>
+  </div>
+
+  <section class="panel active" id="panel-products">
+    <div class="toolbar">
+      <h2>Products <span class="mono" style="font-size:13px;color:#888;" id="productCount"></span></h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <select class="filter" id="catFilter"></select>
+        <button class="btn btn-dark" id="addProductBtn">+ Add product</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Tag</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="productsBody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="panel-categories">
+    <div class="toolbar">
+      <h2>Categories <span class="mono" style="font-size:13px;color:#888;" id="catCount"></span></h2>
+      <button class="btn btn-dark" id="addCatBtn">+ Add category</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th></th><th>Name</th><th>ID (slug)</th><th>Featured on nav</th><th>Products</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="categoriesBody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="panel-orders">
+    <div class="toolbar">
+      <h2>Orders <span class="mono" style="font-size:13px;color:#888;" id="orderCount"></span></h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <select class="filter" id="orderStatusFilter">
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="awaiting_payment">Awaiting payment</option>
+          <option value="processing">Processing</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="btn btn-outline btn-sm" id="loadOrdersBtn">Load orders</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-bottom:12px;">Enter your admin key above, then click Load orders. Orders load read-only from the server; changing status updates live immediately.</p>
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Points used</th><th>Delivery</th><th>Order note</th><th>Status</th></tr>
+      </thead>
+      <tbody id="ordersBody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="panel-customers">
+    <div class="toolbar">
+      <h2>Customers <span class="mono" style="font-size:13px;color:#888;" id="customerCount"></span></h2>
+      <button class="btn btn-outline btn-sm" id="loadCustomersBtn">Load customers</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Joined</th><th>Orders</th><th>Total spent</th></tr>
+      </thead>
+      <tbody id="customersBody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="panel-rewards">
+    <div class="subtabs">
+      <button class="subtab-btn active" data-rewards-tab="overview">Overview</button>
+      <button class="subtab-btn" data-rewards-tab="settings">Points Settings</button>
+      <button class="subtab-btn" data-rewards-tab="rcustomers">Customers</button>
+      <button class="subtab-btn" data-rewards-tab="transactions">Transactions</button>
+      <button class="subtab-btn" data-rewards-tab="referrals">Referrals</button>
+      <button class="subtab-btn" data-rewards-tab="vouchers">Vouchers</button>
+    </div>
+
+    <div class="subpanel active" id="rewards-overview">
+      <div class="toolbar"><h2>Rewards overview</h2><button class="btn btn-outline btn-sm" id="loadRewardsOverviewBtn">Refresh</button></div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num" id="ovIssued">—</div><div class="label">Total points issued</div></div>
+        <div class="stat-card"><div class="num" id="ovRedeemed">—</div><div class="label">Total points redeemed</div></div>
+        <div class="stat-card"><div class="num" id="ovMembers">—</div><div class="label">Reward members</div></div>
+        <div class="stat-card"><div class="num" id="ovReferrals">—</div><div class="label">Successful referrals</div></div>
+        <div class="stat-card"><div class="num" id="ovVouchers">—</div><div class="label">Vouchers generated</div></div>
+      </div>
+    </div>
+
+    <div class="subpanel" id="rewards-settings">
+      <div class="toolbar"><h2>Points settings</h2><button class="btn btn-outline btn-sm" id="loadRewardsSettingsBtn">Reload</button></div>
+      <p class="hint" style="margin-bottom:14px;">Enter your admin key above to save. Changing these values only affects rewards earned from now on — past transactions keep the points that were actually awarded at the time.</p>
+      <div class="settings-form">
+        <div class="settings-row"><label>Account creation</label><div class="settings-input-wrap"><input type="number" id="rsAccountCreation" min="0" step="1"> points</div></div>
+        <div class="settings-row"><label>Purchase</label><div class="settings-input-wrap">£<input type="number" id="rsPurchaseAmount" min="0" step="1"> spent = 1 point</div></div>
+        <div class="settings-row"><label>Successful referral</label><div class="settings-input-wrap"><input type="number" id="rsReferral" min="0" step="1"> points</div></div>
+        <div class="settings-row"><label>Product review</label><div class="settings-input-wrap"><input type="number" id="rsReview" min="0" step="1"> points</div></div>
+        <div class="settings-row"><label>Repeat purchase</label><div class="settings-input-wrap"><input type="number" id="rsRepeatBonus" min="0" step="1"> bonus points</div></div>
+        <div class="settings-row"><label>Voucher conversion</label><div class="settings-input-wrap"><input type="number" id="rsVoucherPer" min="0" step="1"> points = £1</div></div>
+        <div style="margin-top:16px;"><button class="btn btn-dark" id="saveRewardsSettingsBtn">Save settings</button></div>
+      </div>
+    </div>
+
+    <div class="subpanel" id="rewards-rcustomers">
+      <div class="toolbar">
+        <h2>Reward customers <span class="mono" style="font-size:13px;color:#888;" id="rcCount"></span></h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <input type="text" class="filter" id="rcSearch" placeholder="Search name or email">
+          <button class="btn btn-outline btn-sm" id="loadRewardsCustomersBtn">Load customers</button>
+        </div>
+      </div>
+      <div class="adjust-panel">
+        <h3 style="margin-bottom:12px;font-size:15px;">Manual point adjustment</h3>
+        <div class="field-row">
+          <div class="field"><label>Customer</label><select id="adjCustomer"></select></div>
+          <div class="field"><label>Adjustment (+/-)</label><input type="number" id="adjPoints" step="1" placeholder="e.g. 500 or -50"></div>
+        </div>
+        <div class="field"><label>Reason</label><input type="text" id="adjReason" placeholder="e.g. Customer compensation"></div>
+        <button class="btn btn-dark" id="applyAdjustBtn">Apply adjustment</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Balance</th><th>Referral code</th><th>Qualifying orders</th><th>Joined</th></tr></thead>
+        <tbody id="rcBody"></tbody>
+      </table>
+    </div>
+
+    <div class="subpanel" id="rewards-transactions">
+      <div class="toolbar">
+        <h2>Transactions <span class="mono" style="font-size:13px;color:#888;" id="txCount"></span></h2>
+        <button class="btn btn-outline btn-sm" id="loadRewardsTxBtn">Load transactions</button>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>Customer</th><th>Points</th><th>Type</th><th>Reason</th><th>Related order</th></tr></thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+
+    <div class="subpanel" id="rewards-referrals">
+      <div class="toolbar">
+        <h2>Referrals <span class="mono" style="font-size:13px;color:#888;" id="refCount"></span></h2>
+        <button class="btn btn-outline btn-sm" id="loadRewardsReferralsBtn">Load referrals</button>
+      </div>
+      <table>
+        <thead><tr><th>Referrer</th><th>Referred customer</th><th>Status</th><th>Qualifying order</th><th>Date</th></tr></thead>
+        <tbody id="refBody"></tbody>
+      </table>
+    </div>
+
+    <div class="subpanel" id="rewards-vouchers">
+      <div class="toolbar">
+        <h2>Vouchers <span class="mono" style="font-size:13px;color:#888;" id="vchCount"></span></h2>
+        <button class="btn btn-outline btn-sm" id="loadRewardsVouchersBtn">Load vouchers</button>
+      </div>
+      <table>
+        <thead><tr><th>Code</th><th>Customer</th><th>Value</th><th>Status</th><th>Created</th></tr></thead>
+        <tbody id="vchBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-flyers">
+    <div class="toolbar">
+      <h2>Brand Flyers <span class="mono" style="font-size:13px;color:#888;" id="flyerCount"></span></h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="loadFlyersBtn">Load flyers</button>
+        <button class="btn btn-dark" id="uploadFlyersBtn">+ Upload flyers</button>
+        <input type="file" id="flyerUploadInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="file-input">
+        <input type="file" id="flyerReplaceInput" accept="image/jpeg,image/png,image/webp,image/gif" class="file-input">
+      </div>
+    </div>
+    <p class="hint" style="margin-bottom:16px;">Enter your admin key above, then click Load flyers. Select multiple images to upload them all at once — JPEG, PNG, WEBP, or GIF, up to 5MB each. These appear as the Brand Flyers carousel on the storefront, in the order shown below.</p>
+    <div class="flyer-grid" id="flyerGrid"></div>
+  </section>
+</main>
+
+<!-- Product modal -->
+<div class="modal-overlay" id="productModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="productModalTitle">Add product</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Product name</label>
+        <input type="text" id="pName" placeholder="e.g. Wireless Bluetooth Earbuds">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Category</label>
+          <select id="pCategory"></select>
+        </div>
+        <div class="field">
+          <label>Icon (emoji)</label>
+          <input type="text" id="pIcon" maxlength="4">
+        </div>
+      </div>
+      <div class="field">
+        <label>Photo (image path or URL, optional)</label>
+        <input type="text" id="pImage" placeholder="assets/products/goat-meat.png">
+        <div class="hint">If set, this replaces the emoji everywhere the product is shown. Upload the image file into public/assets/products/ alongside index.html.</div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Price (£)</label>
+          <input type="number" id="pPrice" step="0.01" min="0" placeholder="9.99">
+        </div>
+        <div class="field">
+          <label>Was-price (£, optional)</label>
+          <input type="number" id="pOldPrice" step="0.01" min="0" placeholder="Leave blank if no discount">
+        </div>
+      </div>
+      <div class="field">
+        <label>Badge tag (optional)</label>
+        <select id="pTag">
+          <option value="">None</option>
+          <option value="New">New</option>
+          <option value="Sale">Sale</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Description (optional)</label>
+        <textarea id="pDescription" rows="3" placeholder="Shown to customers on the product-options screen" maxlength="400"></textarea>
+      </div>
+      <div class="field">
+        <label>Available brands (optional)</label>
+        <div class="brand-entry">
+          <input type="text" id="pBrandInput" placeholder="e.g. Golden Penny" maxlength="80">
+          <button class="btn btn-outline btn-sm" type="button" id="addBrandBtn">+ Add</button>
+        </div>
+        <div class="hint">Type the brands customers can choose for this product, then click Add.</div>
+        <div class="brand-tags" id="pBrandTags"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Cancel</button>
+      <button class="btn btn-dark" id="saveProductBtn">Save product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category modal -->
+<div class="modal-overlay" id="catModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="catModalTitle">Add category</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Category name</label>
+        <input type="text" id="cName" placeholder="e.g. Gadgets & Accessories">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Icon (emoji)</label>
+          <input type="text" id="cIcon" maxlength="4">
+        </div>
+        <div class="field">
+          <label>Slug / ID</label>
+          <input type="text" id="cId" placeholder="auto-generated">
+          <div class="hint">Used internally; auto-fills from the name.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Photo (image path or URL, optional)</label>
+        <input type="text" id="cImage" placeholder="assets/categories/gadgets.jpeg">
+        <div class="hint">If set, this replaces the emoji on the category card. Upload the image into public/assets/categories/ alongside index.html.</div>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="cFeatured" style="width:auto;margin-right:6px;">Highlight in the top nav bar</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Cancel</button>
+      <button class="btn btn-dark" id="saveCatBtn">Save category</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const DEFAULT_DATA = null; // filled below by fallback fetch failure
+
+  let CATEGORIES = [];
+  let PRODUCTS = [];
+  let nextProductId = 1;
+  let editingProductId = null;
+  let editingCatId = null;
+  let editingProductBrands = [];
+
+  const toast = document.getElementById("toast");
+  let toastTimer;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove("show"), 2200);
+  }
+
+  function setStatus(text, warn){
+    document.getElementById("statusText").textContent = text;
+    document.getElementById("statusDot").classList.toggle("warn", !!warn);
+  }
+
+  const fmt = n => "£" + Number(n).toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+  const slugify = s => s.toLowerCase().trim().replace(/&/g,"and").replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
+
+  // ---------- Load data: try shared products.json, else built-in starter set ----------
+  function fallbackData(){
+    return {
+      categories: [
+        { id:"meat-seafood", name:"Meat & Seafood", icon:"", image:"assets/products/goat-meat.png" },
+        { id:"condiments", name:"Condiments & Spices", icon:"", image:"assets/products/Palm-oil.jpeg" },
+        { id:"drinks", name:"Drinks & Beverages", icon:"", image:"assets/products/Malt-bottle.jpg" },
+        { id:"produce", name:"Fruits & Vegetables", icon:"", image:"assets/products/Plantain-yellow.jpeg" },
+        { id:"grains", name:"Grains, Flour & Cereal", icon:"", image:"assets/products/nigerian-local-rice.jpg" },
+        { id:"snacks", name:"Snacks & Confectionery", icon:"", image:"assets/products/Plantain-chips.jpeg" },
+        { id:"beauty", name:"Beauty & Household", icon:"", image:"assets/products/Dudu-osu.jpeg" },
+        { id:"gadgets", name:"Gadgets & Accessories", icon:"", image:"assets/categories/gadgets.jpeg" },
+        { id:"ready-meals", name:"Ready Meals", icon:"" },
+        { id:"cupboard-food", name:"Cupboard Food", icon:"" },
+      ],
+      products: [
+        { id:1, name:"Goat Meat, Fresh Cut (1kg)", cat:"Meat & Seafood", price:9.99, old:11.49, icon:"", tag:"Sale", image:"assets/products/goat-meat.png", description:"Fresh-cut goat meat, bone-in, perfect for pepper soup or stew. Sold in 1kg portions." },
+        { id:2, name:"Titus Mackerel Fish, Pack of 3", cat:"Meat & Seafood", price:8.99, icon:"", image:"assets/products/Titus .jpeg", description:"Whole Titus mackerel, cleaned and pack-ready — a staple for stews and grilled fish dishes." },
+        { id:3, name:"Chicken Gizzard (1kg)", cat:"Meat & Seafood", price:5.49, icon:"", image:"assets/products/Chicken-gizzard .webp", description:"Tender chicken gizzard, cleaned and trimmed, great for peppered gizzard or stew." },
+        { id:4, name:"Cow Tripe (Shaki), 850g", cat:"Meat & Seafood", price:6.99, icon:"", image:"assets/products/Cow-tripe.jpg", description:"Cow tripe (shaki), pre-cleaned and cut, ideal for traditional soups and stews." },
+        { id:5, name:"Ground Crayfish, 200g", cat:"Condiments & Spices", price:4.5, icon:"", image:"assets/products/Ground-crayfish.jpg", description:"Finely ground crayfish for seasoning soups, stews, and sauces with authentic flavour." },
+        { id:6, name:"Maggi Seasoning Cubes, 400g", cat:"Condiments & Spices", price:3.29, icon:"", image:"assets/products/Maggi.jpeg", description:"Classic all-purpose seasoning cubes for everyday Nigerian and West African cooking." },
+        { id:7, name:"Ground Egusi (Melon Seeds)", cat:"Condiments & Spices", price:4.99, icon:"", image:"assets/products/Ground-egunsi.jpg", description:"Ground egusi (melon seeds) for a rich, hearty egusi soup base." },
+        { id:8, name:"Pure Palm Oil, 1L", cat:"Condiments & Spices", price:5.49, old:6.49, icon:"", tag:"Sale", image:"assets/products/Palm-oil.jpeg", description:"100% pure palm oil, cold-pressed, for authentic colour and flavour in traditional cooking." },
+        { id:9, name:"Malta Guinness, Pack of 6", cat:"Drinks & Beverages", price:6.99, icon:"", image:"assets/products/Malt-bottle.jpg", description:"Malt drink pack, non-alcoholic, rich and refreshing — a household favourite." },
+        { id:10, name:"Zobo Hibiscus Drink, 500ml", cat:"Drinks & Beverages", price:2.49, icon:"", image:"assets/products/Zobo.jpeg", description:"Traditional hibiscus (zobo) drink, naturally spiced and refreshing." },
+        { id:11, name:"Chapman Mix, 1L", cat:"Drinks & Beverages", price:3.99, icon:"", image:"assets/products/Chaps-Premium-Chapma.jpg", description:"Ready-mixed Chapman cocktail base — just pour and serve chilled." },
+        { id:12, name:"Supermalt Can, 500ml", cat:"Drinks & Beverages", price:1.79, icon:"", image:"assets/products/SUPERMALT-CAN-500mlx24-15.99-2.jpg", description:"Malt drink in a convenient can, nourishing and naturally sweet." },
+        { id:13, name:"Plantain, Yellow (bunch)", cat:"Fruits & Vegetables", price:3.49, icon:"", image:"assets/products/Plantain-yellow.jpeg", description:"Ripe yellow plantain, sold by the bunch — great for frying, boiling, or roasting." },
+        { id:14, name:"Scotch Bonnet Peppers, 150g", cat:"Fruits & Vegetables", price:2.29, icon:"", image:"assets/products/Scotch-Peppers.jpeg", description:"Fresh scotch bonnet peppers for authentic West African heat and flavour." },
+        { id:15, name:"Yam Tuber, Medium", cat:"Fruits & Vegetables", price:5.99, icon:"", image:"assets/products/yam.jpg", description:"Fresh medium-sized yam tuber, ideal for pounding, boiling, or frying." },
+        { id:16, name:"Fresh Tomatoes, 1kg", cat:"Fruits & Vegetables", price:2.79, icon:"", image:"assets/products/Tomatoes .jpeg", description:"Fresh, ripe tomatoes, sold by the kilo — perfect for stews and sauces." },
+        { id:17, name:"Local Rice, 5kg", cat:"Grains, Flour & Cereal", price:12.5, icon:"", image:"assets/products/nigerian-local-rice.jpg", description:"Long-grain local rice, 5kg bag, a kitchen staple for jollof and other rice dishes." },
+        { id:18, name:"Brown Beans, 4kg", cat:"Grains, Flour & Cereal", price:10.99, icon:"", image:"assets/products/Brown-beans.jpg", description:"Brown beans, 4kg bag, ideal for moin moin, akara, or beans porridge." },
+        { id:19, name:"Garri, White, 4kg", cat:"Grains, Flour & Cereal", price:8.49, icon:"", image:"assets/products/white-garri.png", description:"White garri, 4kg, finely processed cassava flakes for eba and other dishes." },
+        { id:20, name:"Yam Flour (Elubo), 2kg", cat:"Grains, Flour & Cereal", price:7.99, icon:"", image:"assets/products/Yam-flour.jpeg", description:"Yam flour (elubo), 2kg, for smooth, authentic amala." },
+        { id:21, name:"Plantain Chips, 200g", cat:"Snacks & Confectionery", price:2.49, icon:"", image:"assets/products/Plantain-chips.jpeg", description:"Crispy plantain chips, lightly salted — a popular West African snack." },
+        { id:22, name:"Chin Chin, Family Pack", cat:"Snacks & Confectionery", price:3.49, icon:"", image:"assets/products/Chin-chin.jpg", description:"Sweet, crunchy chin chin, freshly made in a family-size pack." },
+        { id:23, name:"Groundnuts, Roasted, 500g", cat:"Snacks & Confectionery", price:2.29, icon:"", image:"assets/products/Groundnut .jpg", description:"Roasted groundnuts, 500g, a classic protein-rich snack." },
+        { id:24, name:"Dudu Osun Black Soap", cat:"Beauty & Household", price:1.99, icon:"", image:"assets/products/Dudu-osu.jpeg", description:"Dudu Osun black soap, natural and gentle, great for everyday skincare." },
+        { id:25, name:"Shea Butter, Raw, 500g", cat:"Beauty & Household", price:4.49, icon:"", image:"assets/products/Shea-butter.jpg", description:"Raw, unrefined shea butter, 500g, deeply moisturising for skin and hair." },
+        { id:26, name:"Coconut Hair Oil, 250ml", cat:"Beauty & Household", price:3.99, icon:"", image:"assets/products/Coconut-oil-hair.jpg", description:"Coconut hair oil, 250ml, nourishing oil for healthy hair and scalp." },
+        { id:27, name:"10,000mAh Power Bank", cat:"Gadgets & Accessories", price:17.99, icon:"", tag:"New", image:"assets/products/Power-bank.jpeg", description:"10,000mAh portable power bank — fast-charges your phone on the go." },
+        { id:28, name:"Wireless Bluetooth Earbuds", cat:"Gadgets & Accessories", price:14.99, old:19.99, icon:"", tag:"Sale", image:"assets/products/Earbud.jpg", description:"Wireless Bluetooth earbuds with clear sound and a compact charging case." },
+        { id:29, name:"Fast-Charge USB-C Cable, 1m", cat:"Gadgets & Accessories", price:3.99, icon:"", image:"assets/products/USB-cable.jpeg", description:"Fast-charge USB-C cable, 1m length, durable braided design." },
+        { id:30, name:"20W Dual-Port Wall Charger", cat:"Gadgets & Accessories", price:8.99, icon:"", image:"assets/products/Wall-charger.jpg", description:"20W dual-port wall charger for fast charging two devices at once." },
+        { id:31, name:"Phone Ring Light Stand", cat:"Gadgets & Accessories", price:10.99, icon:"", image:"assets/products/1.jpg", description:"Adjustable phone ring light stand, ideal for calls, streaming, and content creation." },
+        { id:32, name:"Bluetooth Mini Speaker", cat:"Gadgets & Accessories", price:16.99, icon:"", tag:"New", image:"assets/products/Speakers-2026.jpg", description:"Compact Bluetooth mini speaker with rich sound and long battery life." },
+        { id:33, name:"Universal Phone Case, Assorted", cat:"Gadgets & Accessories", price:4.99, icon:"", image:"assets/products/is.jpeg", description:"Universal phone case, assorted styles, protective and lightweight." },
+        { id:34, name:"Smartwatch, Fitness Band", cat:"Gadgets & Accessories", price:24.99, icon:"⌚", image:"assets/products/BEST-SMARTWATCH.jpg", description:"Fitness smartwatch with activity tracking, notifications, and long battery life." },
+        { id:35, name:"Amala and Ewedu", cat:"Ready Meals", price:9.99, icon:"", image:"assets/products/Amala.jpeg", description:"Freshly prepared amala served with rich ewedu soup — a comforting Nigerian classic." },
+        { id:36, name:"Nigerian Jollof Rice", cat:"Ready Meals", price:8.99, icon:"", image:"assets/products/jollof-rice.jpeg", description:"Smoky, well-seasoned jollof rice, ready to eat — a takeaway favourite." },
+        { id:37, name:"Beans and Moi Moi", cat:"Ready Meals", price:8.49, icon:"", image:"assets/products/moi-moi.jpeg", description:"Slow-cooked beans porridge served with steamed moi moi." },
+        { id:38, name:"Yellow Eba and Ofe Oha", cat:"Ready Meals", price:10.99, icon:"", description:"Smooth yellow eba paired with a hearty ofe oha soup, ready to enjoy." },
+        { id:39, name:"Tuwo Shinkafa", cat:"Ready Meals", price:9.49, icon:"", image:"assets/products/tuwo.jpeg", description:"Soft rice-based tuwo, a Northern Nigerian staple, ready-prepared." },
+        { id:40, name:"Iru / Ogiri", cat:"Cupboard Food", price:3.99, icon:"",image:"assets/products/Iru-locust-beans.png", description:"Fermented locust bean seasoning for authentic depth of flavour in soups and stews." },
+        { id:41, name:"Sardines in Tomato Sauce", cat:"Cupboard Food", price:1.99, icon:"", image:"assets/products/sardine.jpeg", description:"Tinned sardines in rich tomato sauce — a quick, versatile pantry staple." },
+        { id:42, name:"Spaghetti, 500g", cat:"Cupboard Food", price:1.49, icon:"", image:"assets/products/spag.jpeg", description:"Classic dried spaghetti, 500g pack, a kitchen essential." },
+        { id:43, name:"Nestle Golden Morn Grainsmart", cat:"Cupboard Food", price:6.99, icon:"", image:"assets/products/gplden-morn.jpg", description:"Fortified maize-based cereal, a nourishing breakfast staple." },
+        { id:44, name:"Skippy Peanut Butter Smooth Creamy, 462g", cat:"Cupboard Food", price:4.49, icon:"", image:"assets/products/skippy.jpeg", description:"Smooth, creamy peanut butter, 462g jar — great for spreading or cooking." },
+        { id:45, name:"Spice Supreme Jollof Rice Seasoning Powder, 156g", cat:"Cupboard Food", price:2.99, icon:"", image:"assets/products/jollof-seasoning.jpg", description:"Ready-blended seasoning powder for authentic, flavourful jollof rice." },
+        { id:46, name:"Quaker White Oats Tin, 420g", cat:"Cupboard Food", price:3.49, icon:"", image:"assets/products/quaker.jpeg", description:"Wholesome white oats in a 420g tin, ideal for a hearty breakfast." },
+        { id:47, name:"Checkers Custard Powder Banana, 2kg", cat:"Cupboard Food", price:7.99, icon:"", image:"assets/products/custard.jpg", description:"Banana-flavoured custard powder, 2kg catering pack." },
+        { id:48, name:"Dangote Refined Granulated Sugar, 1kg", cat:"Cupboard Food", price:2.49, icon:"",  image:"assets/products/sugar.jpg", description:"Refined granulated sugar, 1kg bag, for everyday cooking and baking." },
+        { id:49, name:"Exeter Corned Beef", cat:"Cupboard Food", price:3.29, icon:"", image:"assets/products/corn-beef.jpeg", description:"Tinned corned beef, ready to use in stews, sandwiches, or fried rice." },
+        { id:50, name:"Pure Honey", cat:"Cupboard Food", price:5.99, icon:"", image:"assets/products/honey.jpeg", description:"Natural pure honey, unprocessed, for everyday sweetness and cooking." },
+      ]
+    };
+  }
+
+  async function loadData(){
+    try{
+      const res = await fetch("/api/products", {cache:"no-store"});
+      if(!res.ok) throw new Error("missing");
+      const data = await res.json();
+      CATEGORIES = data.categories || [];
+      PRODUCTS = data.products || [];
+      setStatus("Loaded the live catalogue — " + PRODUCTS.length + " products, " + CATEGORIES.length + " categories");
+    }catch(e){
+      const data = fallbackData();
+      CATEGORIES = data.categories;
+      PRODUCTS = data.products;
+      setStatus("Couldn't reach the live server — starting from an empty catalogue.", true);
+    }
+    nextProductId = PRODUCTS.reduce((m,p)=>Math.max(m,p.id||0), 0) + 1;
+    renderAll();
+  }
+
+  async function publishLive(){
+    const key = document.getElementById("adminKey").value.trim();
+    if(!key){ showToast("Enter the admin key first"); return; }
+    const btn = document.getElementById("publishBtn");
+    btn.disabled = true;
+    btn.textContent = "Publishing…";
+    try{
+      const res = await fetch("/api/products", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-admin-key": key },
+        body: JSON.stringify({ categories: CATEGORIES, products: PRODUCTS })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        showToast(data.error || "Publish failed");
+      } else {
+        setStatus("Live — " + data.products + " products, " + data.categories + " categories (last published just now)");
+        showToast("Published — the live site is updated");
+      }
+    }catch(e){
+      showToast("Couldn't reach the server to publish");
+    }finally{
+      btn.disabled = false;
+      btn.textContent = "Publish live";
+    }
+  }
+  document.getElementById("publishBtn").addEventListener("click", publishLive);
+
+  // ---------- Tabs ----------
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("panel-"+btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ---------- Render everything ----------
+  function renderAll(){
+    renderCategoryFilter();
+    renderProducts();
+    renderCategories();
+    populateCategorySelect();
+  }
+
+  function renderCategoryFilter(){
+    const sel = document.getElementById("catFilter");
+    const current = sel.value;
+    sel.innerHTML = '<option value="all">All categories</option>' +
+      CATEGORIES.map(c=>`<option value="${c.name}">${c.name}</option>`).join("");
+    sel.value = current && [...sel.options].some(o=>o.value===current) ? current : "all";
+  }
+
+  function populateCategorySelect(){
+    const sel = document.getElementById("pCategory");
+    sel.innerHTML = CATEGORIES.map(c=>`<option value="${c.name}">${c.icon} ${c.name}</option>`).join("");
+  }
+
+  function renderProducts(){
+    const tbody = document.getElementById("productsBody");
+    const filter = document.getElementById("catFilter").value || "all";
+    let list = PRODUCTS;
+    if(filter !== "all") list = list.filter(p=>p.cat===filter);
+    document.getElementById("productCount").textContent = `(${list.length} of ${PRODUCTS.length})`;
+    tbody.innerHTML = "";
+    if(list.length===0){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No products in this category yet.</td></tr>`;
+      return;
+    }
+    list.forEach(p=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="icon-cell" data-label="Icon">${p.image ? `<img src="${p.image}" alt="" style="width:32px;height:32px;object-fit:cover;">` : (p.icon||"—")}</td>
+        <td data-label="Name"><strong>${p.name}</strong></td>
+        <td data-label="Category">${p.cat}</td>
+        <td class="price-cell" data-label="Price">${fmt(p.price)}${p.old?`<span class="price-old">${fmt(p.old)}</span>`:""}</td>
+        <td data-label="Tag">${p.tag?`<span class="tag-pill">${p.tag}</span>`:"—"}</td>
+        <td class="actions" data-label="Actions">
+          <button class="btn btn-outline btn-sm" data-edit="${p.id}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-del="${p.id}">Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>openProductModal(Number(b.dataset.edit))));
+    tbody.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>deleteProduct(Number(b.dataset.del))));
+  }
+
+  function renderCategories(){
+    const tbody = document.getElementById("categoriesBody");
+    document.getElementById("catCount").textContent = `(${CATEGORIES.length})`;
+    tbody.innerHTML = "";
+    CATEGORIES.forEach(c=>{
+      const count = PRODUCTS.filter(p=>p.cat===c.name).length;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="icon-cell" data-label="Icon">${c.image ? `<img src="${c.image}" alt="" style="width:32px;height:32px;object-fit:cover;">` : (c.icon||"—")}</td>
+        <td data-label="Name"><strong>${c.name}</strong></td>
+        <td data-label="Slug" class="mono">${c.id}</td>
+        <td data-label="Featured">${c.featured?"Yes":"—"}</td>
+        <td data-label="Products">${count}</td>
+        <td class="actions" data-label="Actions">
+          <button class="btn btn-outline btn-sm" data-edit="${c.id}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-del="${c.id}" ${count>0?"disabled title='Move or delete its products first'":""}>Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>openCatModal(b.dataset.edit)));
+    tbody.querySelectorAll("[data-del]:not(:disabled)").forEach(b=>b.addEventListener("click", ()=>deleteCategory(b.dataset.del)));
+  }
+
+  document.getElementById("catFilter").addEventListener("change", renderProducts);
+
+  function renderProductBrandTags(){
+    const wrap = document.getElementById("pBrandTags");
+    wrap.innerHTML = "";
+    editingProductBrands.forEach((brand, index)=>{
+      const tag = document.createElement("span");
+      tag.className = "brand-tag";
+      tag.innerHTML = `${escapeHtml(brand)} <button type="button" aria-label="Remove ${escapeHtml(brand)}">&times;</button>`;
+      tag.querySelector("button").addEventListener("click", ()=>{
+        editingProductBrands.splice(index, 1);
+        renderProductBrandTags();
+      });
+      wrap.appendChild(tag);
+    });
+  }
+  function addProductBrand(){
+    const input = document.getElementById("pBrandInput");
+    const brand = input.value.trim().replace(/\s+/g, " " );
+    if(!brand) return;
+    if(!editingProductBrands.some(b=>b.toLowerCase()===brand.toLowerCase())) editingProductBrands.push(brand);
+    input.value = "";
+    renderProductBrandTags();
+    input.focus();
+  }
+  document.getElementById("addBrandBtn").addEventListener("click", addProductBrand);
+  document.getElementById("pBrandInput").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addProductBrand(); } });
+
+  // ---------- Product modal ----------
+  const productModal = document.getElementById("productModalOverlay");
+  function openProductModal(id){
+    editingProductId = id || null;
+    populateCategorySelect();
+    if(id){
+      const p = PRODUCTS.find(x=>x.id===id);
+      document.getElementById("productModalTitle").textContent = "Edit product";
+      document.getElementById("pName").value = p.name;
+      document.getElementById("pCategory").value = p.cat;
+      document.getElementById("pIcon").value = p.icon || "";
+      document.getElementById("pImage").value = p.image || "";
+      document.getElementById("pPrice").value = p.price;
+      document.getElementById("pOldPrice").value = p.old || "";
+      document.getElementById("pTag").value = p.tag || "";
+      document.getElementById("pDescription").value = p.description || "";
+      editingProductBrands = Array.isArray(p.brands) ? p.brands.map(b=>String(b).trim()).filter(Boolean) : [];
+    } else {
+      document.getElementById("productModalTitle").textContent = "Add product";
+      document.getElementById("pName").value = "";
+      document.getElementById("pIcon").value = "";
+      document.getElementById("pImage").value = "";
+      document.getElementById("pPrice").value = "";
+      document.getElementById("pOldPrice").value = "";
+      document.getElementById("pTag").value = "";
+      document.getElementById("pDescription").value = "";
+      editingProductBrands = [];
+    }
+    renderProductBrandTags();
+    document.getElementById("pBrandInput").value = "";
+    productModal.classList.add("active");
+  }
+  document.getElementById("addProductBtn").addEventListener("click", ()=>openProductModal(null));
+  document.getElementById("saveProductBtn").addEventListener("click", ()=>{
+    const name = document.getElementById("pName").value.trim();
+    const cat = document.getElementById("pCategory").value;
+    const icon = document.getElementById("pIcon").value.trim() || "";
+    const image = document.getElementById("pImage").value.trim() || undefined;
+    const price = parseFloat(document.getElementById("pPrice").value);
+    const oldVal = document.getElementById("pOldPrice").value;
+    const old = oldVal ? parseFloat(oldVal) : undefined;
+    const tag = document.getElementById("pTag").value || undefined;
+    const description = document.getElementById("pDescription").value.trim() || undefined;
+    const brands = [...editingProductBrands];
+
+    if(!name){ showToast("Give the product a name"); return; }
+    if(!cat){ showToast("Add a category first"); return; }
+    if(isNaN(price) || price < 0){ showToast("Enter a valid price"); return; }
+
+    if(editingProductId){
+      const p = PRODUCTS.find(x=>x.id===editingProductId);
+      Object.assign(p, { name, cat, icon, image, price, old, tag, description, brands });
+      if(!image) delete p.image;
+      if(!description) delete p.description;
+    } else {
+      PRODUCTS.push({ id: nextProductId++, name, cat, icon, image, price, old, tag, description, brands });
+    }
+    productModal.classList.remove("active");
+    renderProducts();
+    renderCategories();
+    showToast("Product saved to working copy");
+  });
+  function deleteProduct(id){
+    const p = PRODUCTS.find(x=>x.id===id);
+    if(!p) return;
+    if(!confirm(`Delete "${p.name}"?`)) return;
+    PRODUCTS = PRODUCTS.filter(x=>x.id!==id);
+    renderProducts();
+    renderCategories();
+    showToast("Product deleted from working copy");
+  }
+
+  // ---------- Category modal ----------
+  const catModal = document.getElementById("catModalOverlay");
+  function openCatModal(id){
+    editingCatId = id || null;
+    if(id){
+      const c = CATEGORIES.find(x=>x.id===id);
+      document.getElementById("catModalTitle").textContent = "Edit category";
+      document.getElementById("cName").value = c.name;
+      document.getElementById("cIcon").value = c.icon || "";
+      document.getElementById("cImage").value = c.image || "";
+      document.getElementById("cId").value = c.id;
+      document.getElementById("cFeatured").checked = !!c.featured;
+    } else {
+      document.getElementById("catModalTitle").textContent = "Add category";
+      document.getElementById("cName").value = "";
+      document.getElementById("cIcon").value = "";
+      document.getElementById("cImage").value = "";
+      document.getElementById("cId").value = "";
+      document.getElementById("cFeatured").checked = false;
+    }
+    catModal.classList.add("active");
+  }
+  document.getElementById("addCatBtn").addEventListener("click", ()=>openCatModal(null));
+  document.getElementById("cName").addEventListener("input", e=>{
+    if(!editingCatId) document.getElementById("cId").value = slugify(e.target.value);
+  });
+  document.getElementById("saveCatBtn").addEventListener("click", ()=>{
+    const name = document.getElementById("cName").value.trim();
+    const icon = document.getElementById("cIcon").value.trim() || "";
+    const image = document.getElementById("cImage").value.trim() || undefined;
+    let id = document.getElementById("cId").value.trim() || slugify(name);
+    const featured = document.getElementById("cFeatured").checked;
+
+    if(!name){ showToast("Give the category a name"); return; }
+    const clash = CATEGORIES.find(c=>c.id===id && c.id!==editingCatId);
+    if(clash){ showToast("That slug is already in use — pick another"); return; }
+
+    if(editingCatId){
+      const c = CATEGORIES.find(x=>x.id===editingCatId);
+      const oldName = c.name;
+      Object.assign(c, { id, name, icon, image, featured });
+      if(!image) delete c.image;
+      if(oldName !== name){
+        PRODUCTS.forEach(p=>{ if(p.cat===oldName) p.cat = name; });
+      }
+    } else {
+      CATEGORIES.push({ id, name, icon, image, featured });
+    }
+    catModal.classList.remove("active");
+    renderAll();
+    showToast("Category saved to working copy");
+  });
+  function deleteCategory(id){
+    const c = CATEGORIES.find(x=>x.id===id);
+    if(!c) return;
+    const count = PRODUCTS.filter(p=>p.cat===c.name).length;
+    if(count>0){ showToast("Move or delete its products first"); return; }
+    if(!confirm(`Delete category "${c.name}"?`)) return;
+    CATEGORIES = CATEGORIES.filter(x=>x.id!==id);
+    renderAll();
+    showToast("Category deleted from working copy");
+  }
+
+  // ---------- Modal close handlers ----------
+  document.querySelectorAll("[data-close]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      productModal.classList.remove("active");
+      catModal.classList.remove("active");
+    });
+  });
+  [productModal, catModal].forEach(ov=>{
+    ov.addEventListener("click", e=>{ if(e.target===ov) ov.classList.remove("active"); });
+  });
+
+  // ---------- Orders ----------
+  function getAdminKey(){
+    const key = document.getElementById("adminKey").value.trim();
+    if(!key) showToast("Enter the admin key first");
+    return key;
+  }
+
+  const ORDER_STATUSES = ["pending","awaiting_payment","processing","shipped","delivered","cancelled"];
+
+  async function loadOrders(){
+    const key = getAdminKey();
+    if(!key) return;
+    const tbody = document.getElementById("ordersBody");
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Loading…</td></tr>`;
+    try{
+      const res = await fetch("/api/orders", { headers: { "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${data.error || "Could not load orders"}</td></tr>`; return; }
+      window.__orders = data.orders;
+      renderOrders();
+    }catch(e){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Network error loading orders</td></tr>`;
+    }
+  }
+
+  const REPLACEMENT_LABELS = {
+    similar: "Replace with similar",
+    contact: "Contact before replacing",
+    refund: "Refund, do not replace"
+  };
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+  }
+
+  function renderOrders(){
+    const tbody = document.getElementById("ordersBody");
+    const filter = document.getElementById("orderStatusFilter").value;
+    let orders = (window.__orders || []).slice().reverse();
+    if(filter !== "all") orders = orders.filter(o=>o.status===filter);
+    document.getElementById("orderCount").textContent = `(${orders.length} of ${(window.__orders||[]).length})`;
+    if(orders.length === 0){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No orders match this filter.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = "";
+    orders.forEach(o=>{
+      const tr = document.createElement("tr");
+      tr.dataset.orderId = o.id;
+      const itemsSummary = o.items.map(i=>{
+        const bits = [`<div>${i.qty}× ${escapeHtml(i.name)}</div>`];
+        if(i.brand) bits.push(`<div style="font-size:10.5px;color:#444;">Brand: ${escapeHtml(i.brand)}</div>`);
+        if(i.replacement){
+          bits.push(`<div style="font-size:10.5px;color:var(--rust);">If unavailable: ${escapeHtml(REPLACEMENT_LABELS[i.replacement] || i.replacement)}</div>`);
+        }
+        if(i.note){
+          bits.push(`<div style="font-size:10.5px;color:#666;">Note: ${escapeHtml(i.note)}</div>`);
+        }
+        return `<div style="margin-bottom:8px;">${bits.join("")}</div>`;
+      }).join("");
+      const paymentLabel = o.paymentMethod === "points"
+        ? "Points (fully paid)"
+        : (o.paymentMethod === "cod" ? "Cash on Delivery" : "Card");
+      const pointsLabel = o.pointsUsed > 0
+        ? `${o.pointsUsed} pts (${fmt(o.pointsValue)})${o.pointsDeducted ? "" : " — not yet deducted"}${o.pointsIssue ? ` (Warning: ${escapeHtml(o.pointsIssue)})` : ""}`
+        : "—";
+      tr.innerHTML = `
+        <td data-label="Date">${new Date(o.createdAt).toLocaleString("en-GB")}</td>
+        <td data-label="Customer"><strong>${escapeHtml(o.customerName)}</strong><br><span class="mono" style="font-size:11px;color:#888;">${escapeHtml(o.customerEmail)}</span></td>
+        <td data-label="Items" style="max-width:260px;">${itemsSummary}</td>
+        <td class="price-cell" data-label="Total">${fmt(o.total)}${o.amountDue !== undefined && o.amountDue !== o.total ? `<div style="font-size:10.5px;color:#888;">Due: ${fmt(o.amountDue)}</div>` : ""}</td>
+        <td data-label="Payment">${paymentLabel}</td>
+        <td data-label="Points used" style="font-size:12px;">${pointsLabel}</td>
+        <td data-label="Delivery">${escapeHtml(o.address.line1)}, ${escapeHtml(o.address.city)} ${escapeHtml(o.address.postcode)}</td>
+        <td data-label="Order note" style="max-width:180px;font-size:12.5px;color:#555;">${o.orderNote ? escapeHtml(o.orderNote) : "—"}</td>
+        <td data-label="Status"><select class="filter status-select" data-order="${o.id}">${ORDER_STATUSES.map(s=>`<option value="${s}" ${s===o.status?"selected":""}>${s.replace("_"," ")}</option>`).join("")}</select></td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll(".status-select").forEach(sel=>{
+      sel.addEventListener("change", async ()=>{
+        const key = getAdminKey();
+        if(!key){ return; }
+        try{
+          const res = await fetch(`/api/orders/${sel.dataset.order}/status`, {
+            method:"PUT",
+            headers:{ "Content-Type":"application/json", "x-admin-key": key },
+            body: JSON.stringify({ status: sel.value })
+          });
+          const data = await res.json();
+          if(!res.ok){ showToast(data.error || "Could not update status"); return; }
+          const o = window.__orders.find(x=>x.id===sel.dataset.order);
+          if(o) o.status = sel.value;
+          showToast("Order status updated live");
+        }catch(e){ showToast("Network error updating status"); }
+      });
+    });
+  }
+
+  document.getElementById("loadOrdersBtn").addEventListener("click", loadOrders);
+  document.getElementById("orderStatusFilter").addEventListener("change", renderOrders);
+
+  // ---------- Customers ----------
+  async function loadCustomers(){
+    const key = getAdminKey();
+    if(!key) return;
+    const tbody = document.getElementById("customersBody");
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
+    try{
+      const res = await fetch("/api/customers", { headers: { "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${data.error || "Could not load customers"}</td></tr>`; return; }
+      document.getElementById("customerCount").textContent = `(${data.customers.length})`;
+      if(data.customers.length === 0){
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No customer accounts yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = "";
+      data.customers.forEach(c=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td data-label="Name"><strong>${c.name}</strong></td>
+          <td data-label="Email">${c.email}</td>
+          <td data-label="Joined">${new Date(c.createdAt).toLocaleDateString("en-GB")}</td>
+          <td data-label="Orders">${c.orderCount}</td>
+          <td class="price-cell" data-label="Total spent">${fmt(c.totalSpent)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }catch(e){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Network error loading customers</td></tr>`;
+    }
+  }
+  document.getElementById("loadCustomersBtn").addEventListener("click", loadCustomers);
+
+  // ---------- Rewards ----------
+  document.querySelectorAll(".subtab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".subtab-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".subpanel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("rewards-"+btn.dataset.rewardsTab).classList.add("active");
+    });
+  });
+
+  async function loadRewardsOverview(){
+    const key = getAdminKey();
+    if(!key) return;
+    try{
+      const res = await fetch("/api/rewards/admin/overview", { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Could not load overview"); return; }
+      document.getElementById("ovIssued").textContent = data.totalPointsIssued;
+      document.getElementById("ovRedeemed").textContent = data.totalPointsRedeemed;
+      document.getElementById("ovMembers").textContent = data.memberCount;
+      document.getElementById("ovReferrals").textContent = data.successfulReferrals;
+      document.getElementById("ovVouchers").textContent = data.vouchersGenerated;
+    }catch(e){ showToast("Network error loading overview"); }
+  }
+  document.getElementById("loadRewardsOverviewBtn").addEventListener("click", loadRewardsOverview);
+
+  async function loadRewardsSettings(){
+    const key = getAdminKey();
+    if(!key) return;
+    try{
+      const res = await fetch("/api/rewards/admin/settings", { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Could not load settings"); return; }
+      const s = data.settings;
+      document.getElementById("rsAccountCreation").value = s.accountCreation;
+      document.getElementById("rsPurchaseAmount").value = s.purchaseAmountPerPoint;
+      document.getElementById("rsReferral").value = s.referral;
+      document.getElementById("rsReview").value = s.review;
+      document.getElementById("rsRepeatBonus").value = s.repeatPurchaseBonus;
+      document.getElementById("rsVoucherPer").value = s.voucherPointsPerPound;
+    }catch(e){ showToast("Network error loading settings"); }
+  }
+  document.getElementById("loadRewardsSettingsBtn").addEventListener("click", loadRewardsSettings);
+
+  document.getElementById("saveRewardsSettingsBtn").addEventListener("click", async ()=>{
+    const key = getAdminKey();
+    if(!key) return;
+    const body = {
+      accountCreation: Number(document.getElementById("rsAccountCreation").value),
+      purchaseAmountPerPoint: Number(document.getElementById("rsPurchaseAmount").value),
+      referral: Number(document.getElementById("rsReferral").value),
+      review: Number(document.getElementById("rsReview").value),
+      repeatPurchaseBonus: Number(document.getElementById("rsRepeatBonus").value),
+      voucherPointsPerPound: Number(document.getElementById("rsVoucherPer").value)
+    };
+    try{
+      const res = await fetch("/api/rewards/admin/settings", {
+        method:"PUT", headers:{ "Content-Type":"application/json", "x-admin-key": key },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Could not save settings"); return; }
+      showToast("Rewards settings saved");
+    }catch(e){ showToast("Network error saving settings"); }
+  });
+
+  window.__rewardsCustomers = [];
+  async function loadRewardsCustomers(){
+    const key = getAdminKey();
+    if(!key) return;
+    const tbody = document.getElementById("rcBody");
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Loading…</td></tr>`;
+    try{
+      const search = document.getElementById("rcSearch").value.trim();
+      const res = await fetch("/api/rewards/admin/customers" + (search ? `?search=${encodeURIComponent(search)}` : ""), { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${data.error || "Could not load customers"}</td></tr>`; return; }
+      window.__rewardsCustomers = data.customers;
+      document.getElementById("rcCount").textContent = `(${data.customers.length})`;
+      if(data.customers.length === 0){
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No reward members yet.</td></tr>`;
+      } else {
+        tbody.innerHTML = data.customers.map(c => `
+          <tr>
+            <td data-label="Name">${escapeHtml(c.name)}</td>
+            <td data-label="Email">${escapeHtml(c.email)}</td>
+            <td class="price-cell" data-label="Balance">${c.pointsBalance}</td>
+            <td class="mono" data-label="Referral code">${c.referralCode}</td>
+            <td data-label="Qualifying orders">${c.qualifyingPurchaseCount}</td>
+            <td data-label="Joined">${new Date(c.createdAt).toLocaleDateString("en-GB")}</td>
+          </tr>`).join("");
+      }
+      const sel = document.getElementById("adjCustomer");
+      sel.innerHTML = data.customers.map(c => `<option value="${c.userId}">${escapeHtml(c.name)} (${escapeHtml(c.email)}) — ${c.pointsBalance}pts</option>`).join("");
+    }catch(e){ tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Network error loading customers</td></tr>`; }
+  }
+  document.getElementById("loadRewardsCustomersBtn").addEventListener("click", loadRewardsCustomers);
+  document.getElementById("rcSearch").addEventListener("keydown", e=>{ if(e.key==="Enter") loadRewardsCustomers(); });
+
+  document.getElementById("applyAdjustBtn").addEventListener("click", async ()=>{
+    const key = getAdminKey();
+    if(!key) return;
+    const userId = document.getElementById("adjCustomer").value;
+    const points = parseInt(document.getElementById("adjPoints").value, 10);
+    const reason = document.getElementById("adjReason").value.trim();
+    if(!userId){ showToast("Load customers and pick one first"); return; }
+    if(!points){ showToast("Enter a non-zero points adjustment"); return; }
+    if(!reason){ showToast("Enter a reason"); return; }
+    try{
+      const res = await fetch("/api/rewards/admin/adjust", {
+        method:"POST", headers:{ "Content-Type":"application/json", "x-admin-key": key },
+        body: JSON.stringify({ userId, points, reason })
+      });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Could not apply adjustment"); return; }
+      showToast("Adjustment applied");
+      document.getElementById("adjPoints").value = "";
+      document.getElementById("adjReason").value = "";
+      loadRewardsCustomers();
+    }catch(e){ showToast("Network error applying adjustment"); }
+  });
+
+  const REWARDS_TYPE_LABELS = {
+    signup:"Signup", purchase:"Purchase", repeat_bonus:"Repeat bonus", referral:"Referral",
+    review:"Review", redemption:"Redemption", admin_adjustment:"Admin adjustment", reversal:"Reversal"
+  };
+  async function loadRewardsTransactions(){
+    const key = getAdminKey();
+    if(!key) return;
+    const tbody = document.getElementById("txBody");
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Loading…</td></tr>`;
+    try{
+      const res = await fetch("/api/rewards/admin/transactions", { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${data.error || "Could not load transactions"}</td></tr>`; return; }
+      document.getElementById("txCount").textContent = `(${data.transactions.length})`;
+      const byId = {}; (window.__rewardsCustomers||[]).forEach(c=>byId[c.userId]=c);
+      tbody.innerHTML = data.transactions.length === 0 ? `<tr class="empty-row"><td colspan="6">No transactions yet.</td></tr>` :
+        data.transactions.map(t => `
+          <tr>
+            <td data-label="Date">${new Date(t.createdAt).toLocaleString("en-GB")}</td>
+            <td data-label="Customer">${escapeHtml(byId[t.userId]?.name || t.userId)}</td>
+            <td class="price-cell" data-label="Points">${t.points > 0 ? "+" : ""}${t.points}</td>
+            <td data-label="Type">${REWARDS_TYPE_LABELS[t.type] || t.type}</td>
+            <td data-label="Reason">${escapeHtml(t.reason)}</td>
+            <td data-label="Related order">${t.orderId ? t.orderId.slice(0,8) : "—"}</td>
+          </tr>`).join("");
+    }catch(e){ tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Network error loading transactions</td></tr>`; }
+  }
+  document.getElementById("loadRewardsTxBtn").addEventListener("click", loadRewardsTransactions);
+
+  async function loadRewardsReferrals(){
+    const key = getAdminKey();
+    if(!key) return;
+    const tbody = document.getElementById("refBody");
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
+    try{
+      const res = await fetch("/api/rewards/admin/referrals", { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${data.error || "Could not load referrals"}</td></tr>`; return; }
+      document.getElementById("refCount").textContent = `(${data.referrals.length})`;
+      tbody.innerHTML = data.referrals.length === 0 ? `<tr class="empty-row"><td colspan="5">No referrals yet.</td></tr>` :
+        data.referrals.map(r => `
+          <tr>
+            <td data-label="Referrer">${escapeHtml(r.referrerName)}</td>
+            <td data-label="Referred customer">${escapeHtml(r.referredName)}</td>
+            <td data-label="Status">${r.status}</td>
+            <td data-label="Qualifying order">${r.qualifyingOrderId ? r.qualifyingOrderId.slice(0,8) : "—"}</td>
+            <td data-label="Date">${new Date(r.createdAt).toLocaleDateString("en-GB")}</td>
+          </tr>`).join("");
+    }catch(e){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Network error loading referrals</td></tr>`; }
+  }
+  document.getElementById("loadRewardsReferralsBtn").addEventListener("click", loadRewardsReferrals);
+
+  async function loadRewardsVouchers(){
+    const key = getAdminKey();
+    if(!key) return;
+    const tbody = document.getElementById("vchBody");
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
+    try{
+      const res = await fetch("/api/rewards/admin/vouchers", { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${data.error || "Could not load vouchers"}</td></tr>`; return; }
+      document.getElementById("vchCount").textContent = `(${data.vouchers.length})`;
+      tbody.innerHTML = data.vouchers.length === 0 ? `<tr class="empty-row"><td colspan="5">No vouchers generated yet.</td></tr>` :
+        data.vouchers.map(v => `
+          <tr>
+            <td class="mono" data-label="Code">${v.code}</td>
+            <td data-label="Customer">${escapeHtml(v.customerName)}</td>
+            <td class="price-cell" data-label="Value">${fmt(v.value)}</td>
+            <td data-label="Status">${v.status}</td>
+            <td data-label="Created">${new Date(v.createdAt).toLocaleDateString("en-GB")}</td>
+          </tr>`).join("");
+    }catch(e){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Network error loading vouchers</td></tr>`; }
+  }
+  document.getElementById("loadRewardsVouchersBtn").addEventListener("click", loadRewardsVouchers);
+
+  // ---------- Brand Flyers ----------
+  let __flyerReplaceTargetId = null;
+
+  async function loadFlyers(){
+    const key = getAdminKey();
+    if(!key) return;
+    const grid = document.getElementById("flyerGrid");
+    grid.innerHTML = `<p class="hint">Loading…</p>`;
+    try{
+      const res = await fetch("/api/admin/flyers", { headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ grid.innerHTML = `<p class="hint">${data.error || "Could not load flyers"}</p>`; return; }
+      window.__flyers = data.flyers;
+      renderFlyers();
+    }catch(e){ grid.innerHTML = `<p class="hint">Network error loading flyers</p>`; }
+  }
+
+  function renderFlyers(){
+    const grid = document.getElementById("flyerGrid");
+    const list = (window.__flyers || []).slice().sort((a,b)=>a.order-b.order);
+    document.getElementById("flyerCount").textContent = `(${list.length})`;
+    if(list.length === 0){ grid.innerHTML = `<p class="hint">No flyers uploaded yet — click "+ Upload flyers" to add some.</p>`; return; }
+    grid.innerHTML = list.map((f,i)=>`
+      <div class="flyer-card" data-id="${f.id}">
+        <img src="${f.url}" alt="Brand flyer">
+        <div class="flyer-card-actions">
+          <button class="btn btn-outline btn-sm" data-flyer-up ${i===0?"disabled":""} title="Move earlier">&uarr;</button>
+          <button class="btn btn-outline btn-sm" data-flyer-down ${i===list.length-1?"disabled":""} title="Move later">&darr;</button>
+          <button class="btn btn-outline btn-sm" data-flyer-replace>Replace</button>
+          <button class="btn btn-danger btn-sm" data-flyer-delete>Delete</button>
+        </div>
+      </div>`).join("");
+
+    grid.querySelectorAll("[data-flyer-up]").forEach(btn=>btn.addEventListener("click", e=>moveFlyer(e.currentTarget.closest(".flyer-card").dataset.id, -1)));
+    grid.querySelectorAll("[data-flyer-down]").forEach(btn=>btn.addEventListener("click", e=>moveFlyer(e.currentTarget.closest(".flyer-card").dataset.id, 1)));
+    grid.querySelectorAll("[data-flyer-replace]").forEach(btn=>btn.addEventListener("click", e=>{
+      __flyerReplaceTargetId = e.currentTarget.closest(".flyer-card").dataset.id;
+      document.getElementById("flyerReplaceInput").click();
+    }));
+    grid.querySelectorAll("[data-flyer-delete]").forEach(btn=>btn.addEventListener("click", e=>deleteFlyer(e.currentTarget.closest(".flyer-card").dataset.id)));
+  }
+
+  async function moveFlyer(id, direction){
+    const key = getAdminKey();
+    if(!key) return;
+    const list = (window.__flyers || []).slice().sort((a,b)=>a.order-b.order);
+    const idx = list.findIndex(f=>f.id===id);
+    const swapWith = idx + direction;
+    if(idx === -1 || swapWith < 0 || swapWith >= list.length) return;
+    [list[idx], list[swapWith]] = [list[swapWith], list[idx]];
+    try{
+      const res = await fetch("/api/admin/flyers/reorder", {
+        method:"PUT", headers:{ "Content-Type":"application/json", "x-admin-key": key },
+        body: JSON.stringify({ order: list.map(f=>f.id) })
+      });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Could not reorder flyers"); return; }
+      window.__flyers = data.flyers;
+      renderFlyers();
+    }catch(e){ showToast("Network error reordering flyers"); }
+  }
+
+  async function deleteFlyer(id){
+    const key = getAdminKey();
+    if(!key) return;
+    try{
+      const res = await fetch(`/api/admin/flyers/${id}`, { method:"DELETE", headers:{ "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Could not delete flyer"); return; }
+      showToast("Flyer deleted");
+      loadFlyers();
+    }catch(e){ showToast("Network error deleting flyer"); }
+  }
+
+  document.getElementById("uploadFlyersBtn").addEventListener("click", ()=>{
+    if(!getAdminKey()) return;
+    document.getElementById("flyerUploadInput").click();
+  });
+
+  document.getElementById("flyerUploadInput").addEventListener("change", async (e)=>{
+    const key = getAdminKey();
+    const files = e.target.files;
+    if(!key || !files || files.length === 0) return;
+    const fd = new FormData();
+    for(const f of files) fd.append("flyers", f);
+    try{
+      const res = await fetch("/api/admin/flyers", { method:"POST", headers:{ "x-admin-key": key }, body: fd });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Upload failed"); e.target.value=""; return; }
+      showToast(`Uploaded ${data.flyers.length} flyer${data.flyers.length===1?"":"s"}`);
+      loadFlyers();
+    }catch(e){ showToast("Network error uploading flyers"); }
+    e.target.value = "";
+  });
+
+  document.getElementById("flyerReplaceInput").addEventListener("change", async (e)=>{
+    const key = getAdminKey();
+    const file = e.target.files[0];
+    if(!key || !file || !__flyerReplaceTargetId){ e.target.value=""; return; }
+    const fd = new FormData();
+    fd.append("flyer", file);
+    try{
+      const res = await fetch(`/api/admin/flyers/${__flyerReplaceTargetId}/replace`, { method:"PUT", headers:{ "x-admin-key": key }, body: fd });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || "Replace failed"); e.target.value=""; return; }
+      showToast("Flyer replaced");
+      loadFlyers();
+    }catch(e){ showToast("Network error replacing flyer"); }
+    e.target.value = "";
+    __flyerReplaceTargetId = null;
+  });
+
+  document.getElementById("loadFlyersBtn").addEventListener("click", loadFlyers);
+
+  // ---------- Admin notifications: dashboard, real-time (SSE), and desktop ----------
+  let notifEventSource = null;
+  let notifFilter = "all";
+
+  function switchToOrdersTabAndHighlight(orderId){
+    document.querySelector('.tab-btn[data-tab="orders"]').click();
+    document.getElementById("orderStatusFilter").value = "all";
+    const openRow = () => {
+      renderOrders();
+      const row = document.querySelector(`#ordersBody tr[data-order-id="${orderId}"]`);
+      if(row){
+        row.scrollIntoView({ behavior:"smooth", block:"center" });
+        row.classList.add("notif-highlight");
+        setTimeout(()=>row.classList.remove("notif-highlight"), 3000);
+      }
+    };
+    // Orders may not be loaded yet (admin hasn't clicked "Load orders") —
+    // load them first if needed, reusing the existing loadOrders(), which
+    // itself reuses the same admin key already entered for everything else.
+    if(window.__orders && window.__orders.length){
+      openRow();
+    } else {
+      loadOrders().then(openRow);
+    }
+  }
+
+  function renderNotifUnreadBadge(count){
+    const badge = document.getElementById("notifUnreadBadge");
+    if(count > 0){ badge.textContent = count; badge.style.display = ""; }
+    else { badge.style.display = "none"; }
+  }
+
+  async function loadNotifications(){
+    const key = document.getElementById("adminKey").value.trim();
+    const list = document.getElementById("notifList");
+    if(!key){ list.innerHTML = `<div class="notif-empty">Enter your admin key to view notifications.</div>`; return; }
+    try{
+      const res = await fetch(`/api/admin/notifications?filter=${notifFilter}`, { headers: { "x-admin-key": key } });
+      const data = await res.json();
+      if(!res.ok){ list.innerHTML = `<div class="notif-empty">${data.error || "Could not load notifications"}</div>`; return; }
+      renderNotifUnreadBadge(data.unreadCount);
+      if(data.notifications.length === 0){
+        list.innerHTML = `<div class="notif-empty">${notifFilter === "unread" ? "No unread notifications." : "No notifications yet."}</div>`;
+        return;
+      }
+      list.innerHTML = "";
+      data.notifications.forEach(n=>{
+        const item = document.createElement("div");
+        item.className = "notif-item" + (n.read ? "" : " unread");
+        item.innerHTML = `
+          <button class="notif-dismiss" aria-label="Dismiss">&times;</button>
+          <div class="notif-title">${escapeHtml(n.title)}</div>
+          <div class="notif-message">${escapeHtml(n.message)}</div>
+          <div class="notif-time">${new Date(n.createdAt).toLocaleString("en-GB")}</div>
+        `;
+        item.addEventListener("click", async (e)=>{
+          if(e.target.closest(".notif-dismiss")) return;
+          if(!n.read){
+            const k = document.getElementById("adminKey").value.trim();
+            fetch(`/api/admin/notifications/${n.id}/read`, { method:"POST", headers:{ "x-admin-key": k } })
+              .then(()=>loadNotifications()).catch(()=>{});
+          }
+          document.getElementById("notifOverlay").classList.remove("active");
+          if(n.orderId) switchToOrdersTabAndHighlight(n.orderId);
+        });
+        item.querySelector(".notif-dismiss").addEventListener("click", async (e)=>{
+          e.stopPropagation();
+          const k = document.getElementById("adminKey").value.trim();
+          if(!k) return;
+          await fetch(`/api/admin/notifications/${n.id}`, { method:"DELETE", headers:{ "x-admin-key": k } }).catch(()=>{});
+          loadNotifications();
+        });
+        list.appendChild(item);
+      });
+    }catch(e){
+      list.innerHTML = `<div class="notif-empty">Network error loading notifications.</div>`;
+    }
+  }
+
+  document.getElementById("notifBellBtn").addEventListener("click", ()=>{
+    document.getElementById("notifOverlay").classList.add("active");
+    loadNotifications();
+    updateDesktopNotifPrompt();
+  });
+  document.getElementById("notifCloseBtn").addEventListener("click", ()=>{
+    document.getElementById("notifOverlay").classList.remove("active");
+  });
+  document.getElementById("notifOverlay").addEventListener("click", e=>{
+    if(e.target.id === "notifOverlay") e.currentTarget.classList.remove("active");
+  });
+  document.querySelectorAll(".notif-filter-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".notif-filter-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      notifFilter = btn.dataset.filter;
+      loadNotifications();
+    });
+  });
+  document.getElementById("notifMarkAllBtn").addEventListener("click", async ()=>{
+    const key = document.getElementById("adminKey").value.trim();
+    if(!key){ showToast("Enter the admin key first"); return; }
+    await fetch("/api/admin/notifications/read-all", { method:"POST", headers:{ "x-admin-key": key } }).catch(()=>{});
+    loadNotifications();
+  });
+
+  // ---------- Browser/desktop notifications ----------
+  function updateDesktopNotifPrompt(){
+    const prompt = document.getElementById("notifDesktopPrompt");
+    if(!("Notification" in window)){
+      prompt.style.display = "none"; // unsupported browser — dashboard notifications still work regardless
+      return;
+    }
+    // Notification.permission is remembered by the browser itself across
+    // reloads, so simply reading it here is enough to satisfy "don't ask
+    // again after being denied" — nothing needs to be stored by this app.
+    prompt.style.display = Notification.permission === "default" ? "flex" : "none";
+  }
+  document.getElementById("enableDesktopNotifBtn").addEventListener("click", async ()=>{
+    if(!("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    updateDesktopNotifPrompt();
+    if(result === "granted") showToast("Desktop notifications enabled");
+    else if(result === "denied") showToast("Desktop notifications blocked — you can re-enable them in your browser's site settings");
+  });
+
+  function fireDesktopNotification(payload){
+    if(!("Notification" in window) || Notification.permission !== "granted") return;
+    try{
+      const n = new Notification("MyShopSwift", {
+        body: `${payload.title}\n${payload.message || ""}`.trim(),
+        tag: payload.orderId || payload.id
+      });
+      n.onclick = ()=>{
+        window.focus();
+        document.getElementById("notifOverlay").classList.remove("active");
+        if(payload.orderId) switchToOrdersTabAndHighlight(payload.orderId);
+        n.close();
+      };
+    }catch(e){ /* some browsers throw if permission changed mid-session — safe to ignore */ }
+  }
+
+  // ---------- Real-time: Server-Sent Events ----------
+  function connectNotificationStream(){
+    const key = document.getElementById("adminKey").value.trim();
+    if(!key) return;
+    if(notifEventSource){ notifEventSource.close(); }
+    notifEventSource = new EventSource(`/api/admin/notifications/stream?key=${encodeURIComponent(key)}`);
+    notifEventSource.addEventListener("connected", e=>{
+      try{ renderNotifUnreadBadge(JSON.parse(e.data).unreadCount); }catch(err){}
+    });
+    notifEventSource.addEventListener("new-order", e=>{
+      let payload;
+      try{ payload = JSON.parse(e.data); }catch(err){ return; }
+      renderNotifUnreadBadge(payload.unreadCount);
+      showToast(payload.title);
+      fireDesktopNotification(payload);
+      if(document.getElementById("notifOverlay").classList.contains("active")) loadNotifications();
+    });
+    notifEventSource.onerror = ()=>{
+      // Browsers auto-reconnect EventSource on their own after a network
+      // blip; nothing extra to do here beyond letting that happen.
+    };
+  }
+  document.getElementById("adminKey").addEventListener("change", connectNotificationStream);
+  document.getElementById("adminKey").addEventListener("blur", connectNotificationStream);
+  updateDesktopNotifPrompt();
+
+  loadData();
+})();
+</script>
+</body>
+</html>
