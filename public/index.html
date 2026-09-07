@@ -572,7 +572,7 @@
   <div class="wrap">
     <span>Free UK delivery on orders over £100</span>
     <div class="ub-right">
-      <a href="contact.html">Info@myshopswift.co.uk</a>
+      <span>Phone: 0161 509 2397</span>
       <span>GBP £</span>
     </div>
   </div>
@@ -828,12 +828,18 @@
         <div class="field"><label>Email</label><input type="email" id="regEmail"></div>
         <div class="field"><label>Password (min. 8 characters)</label><input type="password" id="regPassword"></div>
         <div class="field"><label>Referral code (optional)</label><input type="text" id="regReferralCode" placeholder="MSWIFT-XXXXXX"></div>
+        <p class="hint" style="margin:0 0 4px;">We'll email you a link to verify your address after you sign up.</p>
         <p class="form-error" id="regError"></p>
         <button class="btn btn-primary" id="registerSubmit" style="width:100%;">Create account</button>
       </div>
     </div>
     <div class="modal-body" id="accountLoggedIn" style="display:none;">
       <p>Signed in as <strong id="accountName"></strong><br><span style="color:#666;font-size:13px;" id="accountEmail"></span></p>
+
+      <div id="verifyEmailBanner" style="display:none;background:#FFF6E9;border:1px solid #FF6B00;padding:10px 12px;margin-bottom:14px;font-size:13px;">
+        <span>Please verify your email address.</span>
+        <button type="button" class="ci-edit-options" id="resendVerificationBtn" style="margin-left:6px;">Resend verification email</button>
+      </div>
 
       <div class="auth-tabs">
         <button class="auth-tab active" data-account-tab="orders" type="button">Orders</button>
@@ -964,6 +970,7 @@
         <div class="field"><label>City</label><input type="text" id="addrCity" placeholder="London"></div>
         <div class="field"><label>Postcode</label><input type="text" id="addrPostcode" placeholder="E1 6AN"></div>
       </div>
+      <div class="field"><label>Phone number</label><input type="tel" id="addrPhone" placeholder="07123 456789"></div>
       <div class="field" id="pointsPayField" style="display:none;">
         <label>Pay with points</label>
         <div class="points-pay-box">
@@ -1658,6 +1665,7 @@
       document.getElementById("accountModalTitle").textContent = "Your account";
       document.getElementById("accountName").textContent = currentUser.name;
       document.getElementById("accountEmail").textContent = currentUser.email;
+      document.getElementById("verifyEmailBanner").style.display = currentUser.emailVerified ? "none" : "block";
     } else {
       accountLabel.textContent = "Account";
       loggedOutView.style.display = "flex";
@@ -1716,8 +1724,22 @@
       if(!res.ok){ errEl.textContent = data.error || "Could not create account"; return; }
       currentUser = data.user;
       refreshAccountUI();
-      showToast(`Welcome, ${currentUser.name.split(" ")[0]}`);
+      showToast(`Welcome, ${currentUser.name.split(" ")[0]} — check your email to verify your account`);
     }catch(e){ errEl.textContent = "Network error — try again"; }
+  });
+
+  document.getElementById("resendVerificationBtn").addEventListener("click", async (e)=>{
+    if(!currentUser) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try{
+      await fetch("/api/auth/resend-verification", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ email: currentUser.email })
+      });
+      showToast("If your email isn't verified yet, a new link has been sent");
+    }catch(e){ showToast("Network error — try again"); }
+    finally{ btn.disabled = false; }
   });
 
   document.getElementById("logoutBtn").addEventListener("click", async ()=>{
@@ -1731,6 +1753,10 @@
   // ---------- Checkout ----------
   const checkoutOverlay = document.getElementById("checkoutModalOverlay");
   let checkoutRewards = { balance: 0, voucherPointsPerPound: 10 };
+  // Delivery fee is decided server-side (see calculateDeliveryFee in
+  // server.js) — this is fetched once per checkout-modal open purely for
+  // display; the order-creation request recalculates it authoritatively.
+  let checkoutDelivery = { fee: 5.99, reason: null };
 
   function checkoutCartTotal(){
     let total = 0;
@@ -1743,7 +1769,9 @@
   }
 
   function updateCheckoutSummary(){
-    const total = checkoutCartTotal();
+    const subtotal = checkoutCartTotal();
+    const deliveryFee = checkoutDelivery.fee;
+    const grandTotal = Math.round((subtotal + deliveryFee) * 100) / 100;
     const toggle = document.getElementById("usePointsToggle");
     const input = document.getElementById("pointsToUseInput");
     let pointsUsed = 0;
@@ -1751,22 +1779,29 @@
     if(toggle.checked){
       pointsUsed = Math.max(0, parseInt(input.value, 10) || 0);
       pointsUsed = Math.min(pointsUsed, checkoutRewards.balance);
-      const maxUseful = Math.ceil(total * (checkoutRewards.voucherPointsPerPound || 10));
+      const maxUseful = Math.ceil(grandTotal * (checkoutRewards.voucherPointsPerPound || 10));
       pointsUsed = Math.min(pointsUsed, maxUseful);
       input.value = pointsUsed;
     }
-    const pointsValue = Math.min(pointsToValue(pointsUsed), total);
-    const amountDue = Math.round((total - pointsValue) * 100) / 100;
+    const pointsValue = Math.min(pointsToValue(pointsUsed), grandTotal);
+    const amountDue = Math.round((grandTotal - pointsValue) * 100) / 100;
 
     document.getElementById("pointsPayApplied").textContent = pointsUsed > 0
       ? `Applying ${pointsUsed} points = -${fmt(pointsValue)}`
       : "";
 
-    const rows = [`<span>Order total</span><span>${fmt(total)}</span>`];
+    const deliveryDisplay = deliveryFee > 0
+      ? fmt(deliveryFee)
+      : `FREE${checkoutDelivery.reason ? ` (${checkoutDelivery.reason})` : ""}`;
+
+    const rows = [
+      `<span>Product subtotal</span><span>${fmt(subtotal)}</span>`,
+      `<span>Delivery</span><span>${deliveryDisplay}</span>`
+    ];
     if(pointsUsed > 0){
       rows.push(`<span>Points applied</span><span>-${fmt(pointsValue)}</span>`);
-      rows.push(`<span>Amount due</span><span>${fmt(amountDue)}</span>`);
     }
+    rows.push(`<span><strong>Total</strong></span><span><strong>${fmt(pointsUsed > 0 ? amountDue : grandTotal)}</strong></span>`);
     document.getElementById("checkoutSummary").innerHTML = rows.join("");
 
     const payMethodField = document.querySelector('input[name="payMethod"]').closest(".field");
@@ -1778,7 +1813,7 @@
       payMethodField.style.display = "";
       hint.style.display = "none";
     }
-    return { total, pointsUsed, pointsValue, amountDue };
+    return { subtotal, deliveryFee, total: grandTotal, pointsUsed, pointsValue, amountDue };
   }
 
   async function openCheckoutModal(){
@@ -1786,6 +1821,7 @@
     document.getElementById("usePointsToggle").checked = false;
     document.getElementById("pointsToUseInput").value = 0;
     document.getElementById("pointsPayControls").style.display = "none";
+    document.getElementById("addrPhone").value = (currentUser && currentUser.phone) || "";
 
     try{
       const res = await fetch("/api/rewards/me");
@@ -1794,6 +1830,15 @@
         checkoutRewards = { balance: data.balance || 0, voucherPointsPerPound: data.howToEarn.voucherPointsPerPound || 10 };
       }
     }catch(e){ /* points payment simply stays unavailable if this fails */ }
+
+    try{
+      const subtotal = checkoutCartTotal();
+      const res = await fetch(`/api/checkout/delivery-estimate?subtotal=${subtotal}`);
+      if(res.ok){
+        const data = await res.json();
+        checkoutDelivery = { fee: data.deliveryFee || 0, reason: data.deliveryFreeReason || null };
+      }
+    }catch(e){ /* falls back to the standard fee shown above; server still recalculates authoritatively at order time */ }
 
     const pointsField = document.getElementById("pointsPayField");
     if(checkoutRewards.balance > 0){
@@ -1836,7 +1881,9 @@
     const line1 = document.getElementById("addrLine1").value.trim();
     const city = document.getElementById("addrCity").value.trim();
     const postcode = document.getElementById("addrPostcode").value.trim();
+    const phone = document.getElementById("addrPhone").value.trim();
     if(!line1 || !city || !postcode){ errEl.textContent = "Fill in your delivery address"; return; }
+    if(!phone){ errEl.textContent = "A phone number is required"; return; }
 
     const { pointsUsed, amountDue } = updateCheckoutSummary();
     const paymentMethod = amountDue <= 0 && pointsUsed > 0
@@ -1855,7 +1902,7 @@
     try{
       const res = await fetch("/api/orders", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ items, paymentMethod, address: { line1, city, postcode }, orderNote, pointsToUse: pointsUsed })
+        body: JSON.stringify({ items, paymentMethod, address: { line1, city, postcode }, phone, orderNote, pointsToUse: pointsUsed })
       });
       const data = await res.json();
       if(!res.ok){ errEl.textContent = data.error || "Could not place order"; return; }

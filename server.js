@@ -119,6 +119,7 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
           });
           console.log(`Order ${orderId} confirmed via webhook`);
           notifyNewOrder(order);
+          sendPaymentConfirmedEmailOnce(order);
         }
       } catch (error) {
         console.error("[webhook] Failed to process checkout.session.completed:", error.message);
@@ -185,6 +186,8 @@ async function attachUser(req, res, next) {
         u.name,
         u.email,
         u.password_hash,
+        u.phone,
+        u.email_verified,
         u.created_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
@@ -199,15 +202,7 @@ async function attachUser(req, res, next) {
       return next();
     }
 
-    const u = result.rows[0];
-
-    req.user = {
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      passwordHash: u.password_hash,
-      createdAt: u.created_at
-    };
+    req.user = rowToUser(result.rows[0]);
 
     next();
 
@@ -329,20 +324,22 @@ function rowToUser(row) {
     name: row.name,
     email: row.email,
     passwordHash: row.password_hash,
+    phone: row.phone || "",
+    emailVerified: !!row.email_verified,
     createdAt: row.created_at
   };
 }
 
 async function getAllUsers() {
   const result = await db.query(
-    `SELECT id, name, email, password_hash, created_at FROM users`
+    `SELECT id, name, email, password_hash, phone, email_verified, created_at FROM users`
   );
   return result.rows.map(rowToUser);
 }
 
 async function getUserById(id) {
   const result = await db.query(
-    `SELECT id, name, email, password_hash, created_at FROM users WHERE id = $1 LIMIT 1`,
+    `SELECT id, name, email, password_hash, phone, email_verified, created_at FROM users WHERE id = $1 LIMIT 1`,
     [id]
   );
   return result.rows.length ? rowToUser(result.rows[0]) : null;
@@ -350,10 +347,20 @@ async function getUserById(id) {
 
 async function getUserByEmail(email) {
   const result = await db.query(
-    `SELECT id, name, email, password_hash, created_at FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+    `SELECT id, name, email, password_hash, phone, email_verified, created_at FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
     [email]
   );
   return result.rows.length ? rowToUser(result.rows[0]) : null;
+}
+
+// Updates a user's saved phone number — called after an order is placed so
+// future checkouts can prefill it. Never overwrites with an empty value.
+async function saveUserPhoneIfMissing(userId, phone) {
+  if (!phone) return;
+  await db.query(
+    `UPDATE users SET phone = $1 WHERE id = $2 AND (phone IS NULL OR phone = '')`,
+    [phone, userId]
+  );
 }
 
 // ---------- order storage (Postgres — matches the verified "orders" table
@@ -367,7 +374,11 @@ function rowToOrder(row) {
     userId: row.user_id,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
+    phone: row.phone || "",
     items: row.items,
+    subtotal: row.subtotal !== null && row.subtotal !== undefined ? Number(row.subtotal) : Number(row.total),
+    deliveryFee: row.delivery_fee !== null && row.delivery_fee !== undefined ? Number(row.delivery_fee) : 0,
+    deliveryFreeReason: row.delivery_free_reason || null,
     total: Number(row.total),
     pointsUsed: row.points_used !== null ? Number(row.points_used) : 0,
     pointsValue: row.points_value !== null ? Number(row.points_value) : 0,
@@ -377,6 +388,8 @@ function rowToOrder(row) {
     address: row.address,
     orderNote: row.order_note || "",
     status: row.status,
+    placedEmailSent: !!row.placed_email_sent,
+    paymentEmailSent: !!row.payment_email_sent,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
   };
 }
@@ -384,17 +397,70 @@ function rowToOrder(row) {
 async function insertOrder(order) {
   await db.query(
     `INSERT INTO orders (
-      id, user_id, customer_name, customer_email, items, total,
+      id, user_id, customer_name, customer_email, phone, items, subtotal,
+      delivery_fee, delivery_free_reason, total,
       points_used, points_value, amount_due, points_deducted,
       payment_method, address, order_note, status, created_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
     [
-      order.id, order.userId, order.customerName, order.customerEmail,
-      JSON.stringify(order.items), order.total, order.pointsUsed, order.pointsValue,
+      order.id, order.userId, order.customerName, order.customerEmail, order.phone || "",
+      JSON.stringify(order.items), order.subtotal, order.deliveryFee, order.deliveryFreeReason,
+      order.total, order.pointsUsed, order.pointsValue,
       order.amountDue, order.pointsDeducted, order.paymentMethod,
       JSON.stringify(order.address), order.orderNote, order.status, order.createdAt
     ]
   );
+}
+
+// Atomically "claims" the right to send a one-off order email — the UPDATE
+// only succeeds (and returns a row) the first time, so concurrent callers
+// (the Stripe webhook and the client-side confirm fallback can both fire
+// for the same payment) never send the same email twice.
+const EMAIL_CLAIM_COLUMNS = new Set(["placed_email_sent", "payment_email_sent"]);
+async function claimOrderEmail(orderId, column) {
+  if (!EMAIL_CLAIM_COLUMNS.has(column)) throw new Error(`Unknown email-claim column: ${column}`);
+  const result = await db.query(
+    `UPDATE orders SET ${column} = true WHERE id = $1 AND ${column} = false RETURNING id`,
+    [orderId]
+  );
+  return result.rows.length > 0;
+}
+
+// Fire-and-forget: an email failure must never affect the order itself,
+// which is always already saved by the time these run.
+async function sendOrderPlacedEmailOnce(order) {
+  try {
+    if (!(await claimOrderEmail(order.id, "placed_email_sent"))) return;
+    const result = await email.sendOrderPlacedEmail(order);
+    if (!result.delivered && result.error) {
+      console.error(`[email] order-placed email failed for order ${order.id}:`, result.error);
+    }
+  } catch (error) {
+    console.error(`[email] order-placed email failed for order ${order.id}:`, error.message);
+  }
+}
+
+async function sendPaymentConfirmedEmailOnce(order) {
+  try {
+    if (!(await claimOrderEmail(order.id, "payment_email_sent"))) return;
+    const result = await email.sendPaymentConfirmedEmail(order);
+    if (!result.delivered && result.error) {
+      console.error(`[email] payment-confirmed email failed for order ${order.id}:`, result.error);
+    }
+  } catch (error) {
+    console.error(`[email] payment-confirmed email failed for order ${order.id}:`, error.message);
+  }
+}
+
+async function sendOrderStatusEmail(order) {
+  try {
+    const result = await email.sendOrderStatusEmail(order);
+    if (!result.delivered && result.error) {
+      console.error(`[email] order-status email failed for order ${order.id}:`, result.error);
+    }
+  } catch (error) {
+    console.error(`[email] order-status email failed for order ${order.id}:`, error.message);
+  }
 }
 
 async function getOrderById(id) {
@@ -592,21 +658,13 @@ app.post("/api/auth/register", async (req, res) => {
     const createdAt = new Date().toISOString();
 
     const result = await db.query(
-      `INSERT INTO users (id, name, email, password_hash, created_at)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, email, password_hash, created_at`,
+      `INSERT INTO users (id, name, email, password_hash, email_verified, created_at)
+       VALUES ($1, $2, $3, $4, false, $5)
+       RETURNING id, name, email, password_hash, phone, email_verified, created_at`,
       [id, name, email, passwordHash, createdAt]
     );
 
-    const row = result.rows[0];
-
-    const user = {
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      passwordHash: row.password_hash,
-      createdAt: row.created_at
-    };
+    const user = rowToUser(result.rows[0]);
 
     try {
       await rewards.awardSignupBonus(
@@ -616,6 +674,12 @@ app.post("/api/auth/register", async (req, res) => {
     } catch (e) {
       console.error("[rewards] signup bonus failed:", e.message);
     }
+
+    // Best-effort: a verification-email failure must never block account
+    // creation — the customer can always use "resend verification" later.
+    sendVerificationTokenToUser(user).catch(e =>
+      console.error("[auth] Failed to send verification email:", e.message)
+    );
 
     const token = await createSession(user.id);
 
@@ -649,7 +713,7 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT id, name, email, password_hash, created_at
+      `SELECT id, name, email, password_hash, phone, email_verified, created_at
        FROM users
        WHERE LOWER(email) = LOWER($1)
        LIMIT 1`,
@@ -675,13 +739,7 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    const user = {
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      passwordHash: row.password_hash,
-      createdAt: row.created_at
-    };
+    const user = rowToUser(row);
 
     const token = await createSession(user.id);
 
@@ -847,17 +905,170 @@ app.post("/api/auth/reset-password", async (req, res) => {
   }
 });
 
+// ---------- Email verification ----------
+// Same pattern as password_resets above: a random token goes in the emailed
+// link, only its SHA-256 hash is ever stored, and it's single-use + TTL'd.
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute between resends
+
+function hashVerificationToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Generates + stores a new verification token for this user and emails it.
+// Used at registration and by the resend endpoint. Never throws into the
+// caller's request/response flow — callers that need the account to still
+// be created even if this fails already .catch() it themselves.
+async function sendVerificationTokenToUser(user) {
+  const token = crypto.randomBytes(32).toString("hex");
+  await db.query(
+    `INSERT INTO email_verifications (id, user_id, token_hash, expires_at, used, created_at)
+     VALUES ($1,$2,$3,$4,false,$5)`,
+    [
+      crypto.randomUUID(),
+      user.id,
+      hashVerificationToken(token),
+      new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS).toISOString(),
+      new Date().toISOString()
+    ]
+  );
+  const verifyUrl = `${PUBLIC_URL}/verify-email.html?token=${token}`;
+  await email.sendVerificationEmail(user.email, user.name, verifyUrl);
+}
+
+app.post("/api/auth/verify-email", async (req, res) => {
+  const { token } = req.body || {};
+  if (!token || typeof token !== "string") {
+    return res.status(400).json({ error: "This verification link is invalid or has expired" });
+  }
+
+  try {
+    const tokenHash = hashVerificationToken(token);
+    const result = await db.query(
+      `SELECT * FROM email_verifications WHERE token_hash = $1 LIMIT 1`,
+      [tokenHash]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "This verification link is invalid or has expired" });
+    }
+    const record = result.rows[0];
+    const expiresAt = record.expires_at instanceof Date ? record.expires_at.getTime() : new Date(record.expires_at).getTime();
+
+    if (record.used || expiresAt < Date.now()) {
+      return res.status(400).json({ error: "This verification link is invalid or has expired" });
+    }
+
+    await db.query(`UPDATE users SET email_verified = true WHERE id = $1`, [record.user_id]);
+    // Single-use: invalidate this token (and any other still-unused ones
+    // for the same user) so it can never be replayed.
+    await db.query(`UPDATE email_verifications SET used = true WHERE user_id = $1`, [record.user_id]);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[auth] verify-email failed:", error.message);
+    res.status(500).json({ error: "Could not verify your email — please try again" });
+  }
+});
+
+app.post("/api/auth/resend-verification", async (req, res) => {
+  const { email: rawEmail } = req.body || {};
+  const email_ = typeof rawEmail === "string" ? rawEmail.trim() : "";
+  // Same generic response regardless of what's true, to avoid this endpoint
+  // being used to enumerate registered emails — mirrors forgot-password.
+  const genericMessage = "If an account exists for this email and isn't verified yet, a new verification link has been sent.";
+
+  if (!email_) return res.json({ message: genericMessage });
+
+  try {
+    const user = await getUserByEmail(email_);
+    if (!user || user.emailVerified) return res.json({ message: genericMessage });
+
+    // Cooldown: skip sending (but still return the same generic message)
+    // if a token was already issued too recently for this user.
+    const recent = await db.query(
+      `SELECT created_at FROM email_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [user.id]
+    );
+    if (recent.rows.length > 0) {
+      const lastSent = recent.rows[0].created_at instanceof Date
+        ? recent.rows[0].created_at.getTime()
+        : new Date(recent.rows[0].created_at).getTime();
+      if (Date.now() - lastSent < VERIFICATION_RESEND_COOLDOWN_MS) {
+        return res.json({ message: genericMessage });
+      }
+    }
+
+    await sendVerificationTokenToUser(user);
+  } catch (error) {
+    console.error("[auth] resend-verification failed:", error.message);
+    // Same generic response even on error — never leak account existence,
+    // never let a transient hiccup surface as a scary error to the customer.
+  }
+
+  res.json({ message: genericMessage });
+});
+
 // ==================== ORDERS ====================
 
 const REPLACEMENT_OPTIONS = new Set(["", "similar", "contact", "refund"]);
 const PAYMENT_METHODS = new Set(["cod", "card", "points"]);
+const STANDARD_DELIVERY_FEE = 5.99;
+const FREE_DELIVERY_SUBTOTAL_THRESHOLD = 100; // strictly greater than this is free
+
+// Server-side delivery fee calculation — the only place this is ever
+// decided. Never trust a delivery fee from the browser. Used identically
+// for Cash on Delivery, points, and card orders (Stripe is charged whatever
+// this returns).
+async function calculateDeliveryFee(userId, subtotal) {
+  if (subtotal > FREE_DELIVERY_SUBTOTAL_THRESHOLD) {
+    return { fee: 0, reason: "Order over £100" };
+  }
+  // "First order" = no prior order from this customer that wasn't an
+  // abandoned/unpaid card checkout — an abandoned card attempt shouldn't
+  // burn the customer's one-time free-delivery offer.
+  const result = await db.query(
+    `SELECT COUNT(*)::int AS n FROM orders WHERE user_id = $1 AND status != 'awaiting_payment'`,
+    [userId]
+  );
+  if (result.rows[0].n === 0) {
+    return { fee: 0, reason: "First order" };
+  }
+  return { fee: STANDARD_DELIVERY_FEE, reason: null };
+}
+
+// Basic phone validation: not empty, and a plausible international number
+// (digits, spaces, +, -, (, ) only, 7–20 chars) — deliberately loose so
+// legitimate international numbers aren't rejected.
+function isValidPhone(phone) {
+  return typeof phone === "string" && /^[0-9+\-() ]{7,20}$/.test(phone.trim());
+}
+
+// Read-only estimate the checkout UI calls live as the basket changes, so
+// the customer sees the correct delivery fee and free-delivery reason
+// *before* placing the order. Reuses calculateDeliveryFee exactly — the
+// real order-creation route below is still what authoritatively decides
+// (and re-checks) the fee actually charged; this is display-only.
+app.get("/api/checkout/delivery-estimate", requireAuth, async (req, res) => {
+  const subtotal = Math.max(0, Math.round((parseFloat(req.query.subtotal) || 0) * 100) / 100);
+  try {
+    const { fee, reason } = await calculateDeliveryFee(req.user.id, subtotal);
+    res.json({ deliveryFee: fee, deliveryFreeReason: reason });
+  } catch (error) {
+    console.error("[orders] delivery estimate failed:", error.message);
+    res.status(500).json({ error: "Could not estimate delivery fee" });
+  }
+});
 
 app.post("/api/orders", requireAuth, async (req, res) => {
-  const { items, paymentMethod, address, orderNote, pointsToUse } = req.body || {};
+  const { items, paymentMethod, address, orderNote, pointsToUse, phone } = req.body || {};
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "Your basket is empty" });
   if (!PAYMENT_METHODS.has(paymentMethod)) return res.status(400).json({ error: "Choose a payment method" });
   if (!address || !address.line1 || !address.city || !address.postcode) {
     return res.status(400).json({ error: "A delivery address is required" });
+  }
+  const cleanPhone = typeof phone === "string" ? phone.trim() : "";
+  if (!isValidPhone(cleanPhone)) {
+    return res.status(400).json({ error: "A valid phone number is required" });
   }
   if (paymentMethod === "card" && !stripe) {
     return res.status(400).json({ error: "Card payment isn't configured on this server yet — choose Cash on Delivery" });
@@ -872,7 +1083,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Could not verify product prices — please try again" });
   }
   const lineItems = [];
-  let total = 0;
+  let subtotal = 0;
   for (const item of items) {
     const p = products.find(x => x.id === item.productId);
     if (!p) return res.status(400).json({ error: `Product ${item.productId} no longer exists` });
@@ -891,9 +1102,19 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     }
 
     lineItems.push({ productId: p.id, name: p.name, price: p.price, qty, brand, replacement, note });
-    total += p.price * qty;
+    subtotal += p.price * qty;
   }
-  total = Math.round(total * 100) / 100;
+  subtotal = Math.round(subtotal * 100) / 100;
+
+  // ---- Delivery fee (server-side, authoritative — see calculateDeliveryFee) ----
+  let deliveryFee, deliveryFreeReason;
+  try {
+    ({ fee: deliveryFee, reason: deliveryFreeReason } = await calculateDeliveryFee(req.user.id, subtotal));
+  } catch (error) {
+    console.error("[orders] Failed to calculate delivery fee:", error.message);
+    return res.status(500).json({ error: "Could not process your order — please try again" });
+  }
+  const grandTotal = Math.round((subtotal + deliveryFee) * 100) / 100;
 
   // Order-level note (e.g. "deliver after 5pm") — separate from each item's
   // own special instruction above.
@@ -903,6 +1124,8 @@ app.post("/api/orders", requireAuth, async (req, res) => {
   // Reuses the same points-per-pound rate already established for voucher
   // redemption (settings.voucherPointsPerPound), so "1 point" means the same
   // thing everywhere in the app — no second conversion rate invented here.
+  // Points are applied against the grand total (subtotal + delivery), so a
+  // customer with enough points can cover the delivery fee too.
   let rewardsSettings, rewardsAccount;
   try {
     rewardsSettings = await rewards.readSettings();
@@ -922,13 +1145,13 @@ app.post("/api/orders", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "You don't have enough points for that" });
     }
     // Never let requested points exceed what's actually needed for this order.
-    const maxUsefulPoints = Math.ceil(total * rewardsSettings.voucherPointsPerPound);
+    const maxUsefulPoints = Math.ceil(grandTotal * rewardsSettings.voucherPointsPerPound);
     if (pointsUsed > maxUsefulPoints) pointsUsed = maxUsefulPoints;
     pointsValue = Math.round((pointsUsed / rewardsSettings.voucherPointsPerPound) * 100) / 100;
-    if (pointsValue > total) pointsValue = total;
+    if (pointsValue > grandTotal) pointsValue = grandTotal;
   }
 
-  let amountDue = Math.round((total - pointsValue) * 100) / 100;
+  let amountDue = Math.round((grandTotal - pointsValue) * 100) / 100;
   if (amountDue < 0) amountDue = 0;
 
   if (paymentMethod === "points" && amountDue > 0) {
@@ -947,8 +1170,12 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     userId: req.user.id,
     customerName: req.user.name,
     customerEmail: req.user.email,
+    phone: cleanPhone,
     items: lineItems,
-    total,
+    subtotal,
+    deliveryFee,
+    deliveryFreeReason,
+    total: grandTotal,
     pointsUsed,
     pointsValue,
     amountDue,
@@ -986,6 +1213,17 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Could not save your order — please try again" });
   }
 
+  // Best-effort: save the phone number on the account so future checkouts
+  // can prefill it. Never blocks the order response.
+  saveUserPhoneIfMissing(req.user.id, cleanPhone).catch(e =>
+    console.error("[orders] Failed to save phone on user record:", e.message)
+  );
+
+  // "Order successfully placed" email — sent for every payment method,
+  // right away (including card orders still awaiting payment, so the
+  // customer has a record their order was received).
+  sendOrderPlacedEmailOnce(order);
+
   if (confirmedNow) {
     notifyNewOrder(order);
     return res.status(201).json({ order });
@@ -1012,6 +1250,20 @@ app.post("/api/orders", requireAuth, async (req, res) => {
         },
         quantity: li.qty
       }));
+
+  // Delivery fee must be included in what Stripe actually charges — added
+  // as its own line item whenever it isn't already folded into the
+  // points-consolidated line above.
+  if (pointsUsed === 0 && deliveryFee > 0) {
+    stripeLineItems.push({
+      price_data: {
+        currency: "gbp",
+        product_data: { name: "Delivery" },
+        unit_amount: Math.round(deliveryFee * 100)
+      },
+      quantity: 1
+    });
+  }
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -1102,6 +1354,7 @@ app.post("/api/orders/:id/confirm-card-payment", requireAuth, async (req, res) =
   }
 
   notifyNewOrder(order);
+  sendPaymentConfirmedEmailOnce(order);
   res.json({ order });
 });
 
@@ -1141,13 +1394,22 @@ app.put("/api/orders/:id/status", requireAdmin, async (req, res) => {
     // Rewards: "delivered" is the qualifying/completed status for this
     // project's order lifecycle. Award on entry, reverse on exit — both
     // idempotent, so re-saving the same status twice is always safe.
+    // Points are earned on the merchandise subtotal only, not the delivery
+    // fee — pass a total override for this call so the earn rate keeps
+    // meaning what it always meant, before delivery fees existed.
     try {
       if (status === "delivered" && previousStatus !== "delivered") {
-        await rewards.processQualifyingPurchase(order);
+        await rewards.processQualifyingPurchase({ ...order, total: order.subtotal });
       } else if (previousStatus === "delivered" && status !== "delivered") {
-        await rewards.reverseQualifyingPurchase(order);
+        await rewards.reverseQualifyingPurchase({ ...order, total: order.subtotal });
       }
     } catch (e) { console.error("[rewards] order status reward handling failed:", e.message); }
+
+    // Customer-facing status email — only when the status actually changed,
+    // so re-saving the same value in the dropdown never resends it.
+    if (status !== previousStatus) {
+      sendOrderStatusEmail(order);
+    }
 
     res.json({ order });
   } catch (error) {

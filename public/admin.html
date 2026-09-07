@@ -270,7 +270,7 @@
     <p class="hint" style="margin-bottom:12px;">Enter your admin key above, then click Load orders. Orders load read-only from the server; changing status updates live immediately.</p>
     <table>
       <thead>
-        <tr><th>Date</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Points used</th><th>Delivery</th><th>Order note</th><th>Status</th></tr>
+        <tr><th>Date</th><th>Customer</th><th>Phone</th><th>Items</th><th>Subtotal</th><th>Delivery fee</th><th>Total</th><th>Payment</th><th>Points used</th><th>Address</th><th>Order note</th><th>Status</th></tr>
       </thead>
       <tbody id="ordersBody"></tbody>
     </table>
@@ -917,15 +917,15 @@
     const key = getAdminKey();
     if(!key) return;
     const tbody = document.getElementById("ordersBody");
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Loading…</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="12">Loading…</td></tr>`;
     try{
       const res = await fetch("/api/orders", { headers: { "x-admin-key": key } });
       const data = await res.json();
-      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${data.error || "Could not load orders"}</td></tr>`; return; }
+      if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="12">${data.error || "Could not load orders"}</td></tr>`; return; }
       window.__orders = data.orders;
       renderOrders();
     }catch(e){
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Network error loading orders</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="12">Network error loading orders</td></tr>`;
     }
   }
 
@@ -945,7 +945,7 @@
     if(filter !== "all") orders = orders.filter(o=>o.status===filter);
     document.getElementById("orderCount").textContent = `(${orders.length} of ${(window.__orders||[]).length})`;
     if(orders.length === 0){
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No orders match this filter.</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="12">No orders match this filter.</td></tr>`;
       return;
     }
     tbody.innerHTML = "";
@@ -969,14 +969,20 @@
       const pointsLabel = o.pointsUsed > 0
         ? `${o.pointsUsed} pts (${fmt(o.pointsValue)})${o.pointsDeducted ? "" : " — not yet deducted"}${o.pointsIssue ? ` (Warning: ${escapeHtml(o.pointsIssue)})` : ""}`
         : "—";
+      const deliveryLabel = o.deliveryFee > 0
+        ? fmt(o.deliveryFee)
+        : `FREE${o.deliveryFreeReason ? `<div style="font-size:10.5px;color:#888;">${escapeHtml(o.deliveryFreeReason)}</div>` : ""}`;
       tr.innerHTML = `
         <td data-label="Date">${new Date(o.createdAt).toLocaleString("en-GB")}</td>
         <td data-label="Customer"><strong>${escapeHtml(o.customerName)}</strong><br><span class="mono" style="font-size:11px;color:#888;">${escapeHtml(o.customerEmail)}</span></td>
+        <td data-label="Phone">${o.phone ? escapeHtml(o.phone) : "—"}</td>
         <td data-label="Items" style="max-width:260px;">${itemsSummary}</td>
+        <td class="price-cell" data-label="Subtotal">${fmt(o.subtotal !== undefined ? o.subtotal : o.total)}</td>
+        <td class="price-cell" data-label="Delivery fee">${deliveryLabel}</td>
         <td class="price-cell" data-label="Total">${fmt(o.total)}${o.amountDue !== undefined && o.amountDue !== o.total ? `<div style="font-size:10.5px;color:#888;">Due: ${fmt(o.amountDue)}</div>` : ""}</td>
         <td data-label="Payment">${paymentLabel}</td>
         <td data-label="Points used" style="font-size:12px;">${pointsLabel}</td>
-        <td data-label="Delivery">${escapeHtml(o.address.line1)}, ${escapeHtml(o.address.city)} ${escapeHtml(o.address.postcode)}</td>
+        <td data-label="Address">${escapeHtml(o.address.line1)}, ${escapeHtml(o.address.city)} ${escapeHtml(o.address.postcode)}</td>
         <td data-label="Order note" style="max-width:180px;font-size:12.5px;color:#555;">${o.orderNote ? escapeHtml(o.orderNote) : "—"}</td>
         <td data-label="Status"><select class="filter status-select" data-order="${o.id}">${ORDER_STATUSES.map(s=>`<option value="${s}" ${s===o.status?"selected":""}>${s.replace("_"," ")}</option>`).join("")}</select></td>`;
       tbody.appendChild(tr);
