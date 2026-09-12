@@ -172,7 +172,13 @@ async function createSession(userId) {
 
 // ---------- auth middleware ----------
 async function attachUser(req, res, next) {
-  const token = req.cookies.session;
+  // Web keeps using the httpOnly cookie exactly as before. Native apps have
+  // no cookie jar shared with a browser, so they send the same session
+  // token as a Bearer header instead — checked only when no cookie is
+  // present, so nothing about existing web behaviour changes.
+  const authHeader = req.headers.authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+  const token = req.cookies.session || bearerToken;
 
   if (!token) {
     req.user = null;
@@ -690,7 +696,12 @@ app.post("/api/auth/register", async (req, res) => {
     });
 
     res.status(201).json({
-      user: publicUser(user)
+      user: publicUser(user),
+      // Native apps have no shared browser cookie jar, so the token is also
+      // returned here for them to store in secure storage and send back as
+      // an Authorization header (see attachUser below). Web keeps using the
+      // httpOnly cookie above exactly as before — nothing changes for it.
+      token
     });
 
   } catch (error) {
@@ -750,7 +761,8 @@ app.post("/api/auth/login", async (req, res) => {
     });
 
     res.json({
-      user: publicUser(user)
+      user: publicUser(user),
+      token
     });
 
   } catch (error) {
@@ -764,7 +776,9 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/auth/me", (req, res) => res.json({ user: publicUser(req.user) }));
 
 app.post("/api/auth/logout", async (req, res) => {
-  const token = req.cookies.session;
+  const authHeader = req.headers.authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+  const token = req.cookies.session || bearerToken;
   if (token) {
     try {
       await db.query(`DELETE FROM sessions WHERE token = $1`, [token]);
@@ -1060,7 +1074,7 @@ app.get("/api/checkout/delivery-estimate", requireAuth, async (req, res) => {
 });
 
 app.post("/api/orders", requireAuth, async (req, res) => {
-  const { items, paymentMethod, address, orderNote, pointsToUse, phone } = req.body || {};
+  const { items, paymentMethod, address, orderNote, pointsToUse, phone, platform } = req.body || {};
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "Your basket is empty" });
   if (!PAYMENT_METHODS.has(paymentMethod)) return res.status(400).json({ error: "Choose a payment method" });
   if (!address || !address.line1 || !address.city || !address.postcode) {
@@ -1270,8 +1284,16 @@ app.post("/api/orders", requireAuth, async (req, res) => {
       mode: "payment",
       payment_method_types: ["card"],
       line_items: stripeLineItems,
-      success_url: `${PUBLIC_URL}/?order=${order.id}&paid=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${PUBLIC_URL}/?order=${order.id}&paid=0`,
+      // The mobile app has no PUBLIC_URL web page to land on — it opens this
+      // checkout in an in-app browser session and needs Stripe to redirect
+      // back to a custom URL scheme so control returns to the app. Web
+      // behaviour (the default) is completely unchanged.
+      success_url: platform === "mobile"
+        ? `myshopswift://payment-result?order=${order.id}&paid=1&session_id={CHECKOUT_SESSION_ID}`
+        : `${PUBLIC_URL}/?order=${order.id}&paid=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: platform === "mobile"
+        ? `myshopswift://payment-result?order=${order.id}&paid=0`
+        : `${PUBLIC_URL}/?order=${order.id}&paid=0`,
       metadata: { orderId: order.id, pointsUsed: String(pointsUsed) }
     });
     res.status(201).json({ order, checkoutUrl: session.url });
