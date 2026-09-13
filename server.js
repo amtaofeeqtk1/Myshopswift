@@ -508,9 +508,17 @@ async function setOrderStatus(id, status) {
 // migrate-products.js schema: categories.id/products.id are the primary
 // keys, brands is jsonb, price/old_price are numeric) ----------
 function rowToCategory(row) {
-  return { id: row.id, name: row.name, icon: row.icon || "", image: row.image || "" };
+  const image = row.image || "";
+  return {
+    id: row.id,
+    name: row.name,
+    icon: row.icon || "",
+    image: image.startsWith("http") ? image : (image ? `\( {PUBLIC_URL}/ \){image}` : "")
+  };
 }
+
 function rowToProduct(row) {
+  const image = row.image || "";
   const out = {
     id: row.id,
     name: row.name,
@@ -518,13 +526,14 @@ function rowToProduct(row) {
     price: Number(row.price),
     icon: row.icon || "",
     tag: row.tag || "",
-    image: row.image || "",
+    image: image.startsWith("http") ? image : (image ? `\( {PUBLIC_URL}/ \){image}` : ""),
     description: row.description || "",
     brands: Array.isArray(row.brands) ? row.brands : []
   };
   if (row.old_price !== null && row.old_price !== undefined) out.old = Number(row.old_price);
   return out;
 }
+
 
 async function getCatalogue() {
   const [catResult, prodResult] = await Promise.all([
