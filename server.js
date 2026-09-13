@@ -507,9 +507,21 @@ async function setOrderStatus(id, status) {
 // ---------- catalogue storage (Postgres — matches the verified
 // migrate-products.js schema: categories.id/products.id are the primary
 // keys, brands is jsonb, price/old_price are numeric) ----------
-function rowToCategory(row) {
-  return { id: row.id, name: row.name, icon: row.icon || "", image: row.image || "" };
+function makeImageUrl(image) {
+  if (!image) return "";
+  if (image.startsWith("http")) return image;
+  return `\( {PUBLIC_URL}/ \){image}`;
 }
+
+function rowToCategory(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    icon: row.icon || "",
+    image: makeImageUrl(row.image)
+  };
+}
+
 function rowToProduct(row) {
   const out = {
     id: row.id,
@@ -518,7 +530,7 @@ function rowToProduct(row) {
     price: Number(row.price),
     icon: row.icon || "",
     tag: row.tag || "",
-    image: row.image || "",
+    image: makeImageUrl(row.image),
     description: row.description || "",
     brands: Array.isArray(row.brands) ? row.brands : []
   };
