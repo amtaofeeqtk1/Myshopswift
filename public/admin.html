@@ -164,19 +164,118 @@
     td::before{content:attr(data-label);font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rust);text-transform:uppercase;}
     td.actions{justify-content:flex-start;}
   }
+
+  /* ---------- Admin login / setup / reset screen ---------- */
+  #adminAuthScreen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  #adminAuthScreen .auth-card{
+    background:#fff;border:1px solid var(--line);max-width:400px;width:100%;padding:32px 28px;
+  }
+  #adminAuthScreen .brand{
+    font-family:'Poppins',sans-serif;font-weight:800;font-size:20px;color:var(--indigo);
+    margin-bottom:22px;text-align:center;
+  }
+  #adminAuthScreen h1{font-size:20px;margin:0 0 6px;}
+  #adminAuthScreen p.lede{font-size:13.5px;color:#666;margin:0 0 20px;line-height:1.5;}
+  #adminAuthScreen .field{margin-bottom:14px;}
+  #adminAuthScreen .field label{
+    display:block;font-size:11.5px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--rust);margin-bottom:5px;
+  }
+  #adminAuthScreen .field input{
+    width:100%;padding:11px 12px;border:1.5px solid var(--indigo);background:#fff;
+    font-size:14px;outline:none;font-family:'Work Sans',sans-serif;
+  }
+  #adminAuthScreen .btn{width:100%;padding:13px;text-align:center;}
+  #adminAuthScreen .auth-links{display:flex;justify-content:space-between;margin-top:14px;font-size:12.5px;}
+  #adminAuthScreen .auth-links a{color:var(--indigo);cursor:pointer;text-decoration:underline;}
+  #adminAuthScreen .form-error{color:var(--rust);font-size:12.5px;margin:0 0 12px;min-height:1em;}
+  #adminAuthScreen .form-success{color:var(--green);font-size:12.5px;margin:0 0 12px;}
+  #adminAuthScreen .auth-view{display:none;}
+  #adminAuthScreen .auth-view.active{display:block;}
+  #adminAuthScreen .back-link{display:block;text-align:center;margin-top:16px;font-size:12.5px;color:var(--indigo);cursor:pointer;text-decoration:underline;}
+  #appShell{display:none;}
 </style>
 </head>
 <body>
 
+<!-- ================= Admin auth gate ================= -->
+<div id="adminAuthScreen">
+  <div class="auth-card">
+    <div class="brand">MyShopSwift<br><span style="font-size:11px;letter-spacing:.08em;color:var(--rust);font-family:'IBM Plex Mono',monospace;">ADMIN</span></div>
+
+    <!-- Login -->
+    <div class="auth-view active" id="authView-login">
+      <h1>Admin login</h1>
+      <p class="lede">Sign in with the authorized admin account.</p>
+      <div class="field"><label>Admin email</label><input type="email" id="loginEmail" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+      <p class="form-error" id="loginError"></p>
+      <button class="btn btn-dark" id="loginBtn">Log in</button>
+      <div class="auth-links">
+        <a id="showForgotLink">Forgot password?</a>
+        <a id="showGenerateLink">First-time setup</a>
+      </div>
+    </div>
+
+    <!-- First-time setup request -->
+    <div class="auth-view" id="authView-generate">
+      <h1>First-time setup</h1>
+      <p class="lede">Enter the admin email to receive a temporary password. It expires in 20 minutes and can only be used once.</p>
+      <div class="field"><label>Admin email</label><input type="email" id="generateEmail" autocomplete="username"></div>
+      <p class="form-error" id="generateError"></p>
+      <p class="form-success" id="generateSuccess"></p>
+      <a class="back-link hidden" id="generateGotCodeLink" style="display:none;">I have my temporary password →</a>
+      <button class="btn btn-dark" id="generateBtn">Generate password</button>
+      <a class="back-link" id="generateBackLink">Back to login</a>
+    </div>
+
+    <!-- Forgot password request -->
+    <div class="auth-view" id="authView-forgot">
+      <h1>Forgot password</h1>
+      <p class="lede">Enter the admin email to receive a temporary password. It expires in 20 minutes and can only be used once.</p>
+      <div class="field"><label>Admin email</label><input type="email" id="forgotEmail" autocomplete="username"></div>
+      <p class="form-error" id="forgotError"></p>
+      <p class="form-success" id="forgotSuccess"></p>
+      <a class="back-link" id="forgotGotCodeLink" style="display:none;">I have my temporary password →</a>
+      <button class="btn btn-dark" id="forgotBtn">Send temporary password</button>
+      <a class="back-link" id="forgotBackLink">Back to login</a>
+    </div>
+
+    <!-- Complete setup / reset with the emailed temporary password -->
+    <div class="auth-view" id="authView-complete">
+      <h1>Set your password</h1>
+      <p class="lede">Enter the temporary password we emailed you, then choose a new permanent password.</p>
+      <div class="field"><label>Admin email</label><input type="email" id="completeEmail" autocomplete="username"></div>
+      <div class="field"><label>Temporary password</label><input type="text" id="completeTempPassword" autocomplete="one-time-code"></div>
+      <div class="field"><label>New password</label><input type="password" id="completeNewPassword" autocomplete="new-password"></div>
+      <div class="field"><label>Confirm new password</label><input type="password" id="completeConfirmPassword" autocomplete="new-password"></div>
+      <p class="form-error" id="completeError"></p>
+      <button class="btn btn-dark" id="completeBtn">Set password</button>
+      <a class="back-link" id="completeBackLink">Back to login</a>
+    </div>
+
+    <!-- Setup/reset success -->
+    <div class="auth-view" id="authView-completeSuccess">
+      <h1 style="color:var(--green);">Password set</h1>
+      <p class="lede">Your permanent admin password has been saved. Log in with it below.</p>
+      <a class="btn btn-dark" id="completeSuccessBackLink" style="display:block;text-decoration:none;box-sizing:border-box;">Back to login</a>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Dashboard (hidden until login) ================= -->
+<div id="appShell">
 <header>
   <div class="header-inner">
     <div class="brand">MyShopSwift<span>Admin — Catalogue Manager</span></div>
     <div class="header-actions">
-      <input type="password" id="adminKey" placeholder="Admin key" style="padding:9px 10px;border:1.5px solid rgba(247,242,231,.5);background:transparent;color:var(--paper);font-size:13px;width:150px;">
       <button class="btn btn-ghost btn-sm" id="notifBellBtn" aria-label="Notifications" style="position:relative;">
         Notifications <span id="notifUnreadBadge" style="display:none;background:var(--rust);color:#fff;border-radius:50%;font-size:11px;padding:1px 6px;margin-left:4px;">0</span>
       </button>
       <button class="btn btn-primary btn-sm" id="publishBtn">Publish live</button>
+      <button class="btn btn-ghost btn-sm" id="adminLogoutBtn">Log out</button>
     </div>
   </div>
 </header>
@@ -502,9 +601,193 @@
 </div>
 
 <div class="toast" id="toast"></div>
+</div><!-- /#appShell -->
 
 <script>
 (function(){
+  // ---------- Admin auth gate ----------
+  // Everything below the login screen is gated on a valid admin_session
+  // cookie, verified server-side (see /api/admin/verify). There is no
+  // frontend admin flag of any kind — the server is the sole authority.
+  function showAuthView(name){
+    document.querySelectorAll(".auth-view").forEach(v=>v.classList.remove("active"));
+    document.getElementById("authView-" + name).classList.add("active");
+  }
+  function showAuthScreen(){
+    document.getElementById("appShell").style.display = "none";
+    document.getElementById("adminAuthScreen").style.display = "flex";
+    showAuthView("login");
+  }
+  function showApp(){
+    document.getElementById("adminAuthScreen").style.display = "none";
+    document.getElementById("appShell").style.display = "block";
+    connectNotificationStream();
+    updateDesktopNotifPrompt();
+  }
+  async function checkAdminSession(){
+    try{
+      const res = await fetch("/api/admin/verify", { method: "POST" });
+      if(res.ok) showApp(); else showAuthScreen();
+    }catch(e){ showAuthScreen(); }
+  }
+
+  // Safety net: if a session expires mid-session, any protected admin call
+  // will start 401ing — bounce back to the login screen instead of leaving
+  // panels that silently stop working. The auth endpoints themselves are
+  // excluded since a 401 there (e.g. a wrong password) is an expected,
+  // already-handled outcome, not a session expiry.
+  const ADMIN_AUTH_ENDPOINTS = [
+    "/api/admin/login", "/api/admin/logout", "/api/admin/verify",
+    "/api/admin/generate-password", "/api/admin/forgot-password", "/api/admin/complete-setup"
+  ];
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = async function(url, opts){
+    const res = await _origFetch(url, opts);
+    const path = typeof url === "string" ? url.split("?")[0] : "";
+    if(res.status === 401 && path.startsWith("/api/") && !ADMIN_AUTH_ENDPOINTS.includes(path)){
+      showAuthScreen();
+    }
+    return res;
+  };
+
+  document.getElementById("loginBtn").addEventListener("click", async ()=>{
+    const errEl = document.getElementById("loginError");
+    errEl.textContent = "";
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    if(!email || !password){ errEl.textContent = "Enter your admin email and password"; return; }
+    const btn = document.getElementById("loginBtn");
+    btn.disabled = true; btn.textContent = "Logging in…";
+    try{
+      const res = await fetch("/api/admin/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Could not log in"; return; }
+      document.getElementById("loginPassword").value = "";
+      showApp();
+    }catch(e){
+      errEl.textContent = "Network error — please try again";
+    }finally{
+      btn.disabled = false; btn.textContent = "Log in";
+    }
+  });
+
+  document.getElementById("adminLogoutBtn").addEventListener("click", async ()=>{
+    try{ await fetch("/api/admin/logout", { method: "POST" }); }catch(e){}
+    // notifEventSource is declared further down (closes over the same IIFE
+    // scope) — safe to reference here since this only runs on a later click,
+    // by which point that declaration has already run.
+    if(notifEventSource){ notifEventSource.close(); notifEventSource = null; }
+    showAuthScreen();
+  });
+
+  document.getElementById("showForgotLink").addEventListener("click", ()=>{
+    document.getElementById("forgotEmail").value = document.getElementById("loginEmail").value;
+    document.getElementById("forgotError").textContent = "";
+    document.getElementById("forgotSuccess").textContent = "";
+    document.getElementById("forgotGotCodeLink").style.display = "none";
+    showAuthView("forgot");
+  });
+  document.getElementById("showGenerateLink").addEventListener("click", ()=>{
+    document.getElementById("generateEmail").value = document.getElementById("loginEmail").value;
+    document.getElementById("generateError").textContent = "";
+    document.getElementById("generateSuccess").textContent = "";
+    document.getElementById("generateGotCodeLink").style.display = "none";
+    showAuthView("generate");
+  });
+  document.getElementById("generateBackLink").addEventListener("click", ()=>showAuthView("login"));
+  document.getElementById("forgotBackLink").addEventListener("click", ()=>showAuthView("login"));
+  document.getElementById("completeBackLink").addEventListener("click", ()=>showAuthView("login"));
+  document.getElementById("completeSuccessBackLink").addEventListener("click", (e)=>{ e.preventDefault(); showAuthView("login"); });
+
+  document.getElementById("generateBtn").addEventListener("click", async ()=>{
+    const errEl = document.getElementById("generateError");
+    const okEl = document.getElementById("generateSuccess");
+    errEl.textContent = ""; okEl.textContent = "";
+    const email = document.getElementById("generateEmail").value.trim();
+    if(!email){ errEl.textContent = "Enter the admin email"; return; }
+    const btn = document.getElementById("generateBtn");
+    btn.disabled = true; btn.textContent = "Sending…";
+    try{
+      const res = await fetch("/api/admin/generate-password", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      okEl.textContent = data.message || "If eligible, a temporary password has been sent.";
+      document.getElementById("completeEmail").value = email;
+      document.getElementById("generateGotCodeLink").style.display = "block";
+    }catch(e){
+      errEl.textContent = "Network error — please try again";
+    }finally{
+      btn.disabled = false; btn.textContent = "Generate password";
+    }
+  });
+
+  document.getElementById("forgotBtn").addEventListener("click", async ()=>{
+    const errEl = document.getElementById("forgotError");
+    const okEl = document.getElementById("forgotSuccess");
+    errEl.textContent = ""; okEl.textContent = "";
+    const email = document.getElementById("forgotEmail").value.trim();
+    if(!email){ errEl.textContent = "Enter the admin email"; return; }
+    const btn = document.getElementById("forgotBtn");
+    btn.disabled = true; btn.textContent = "Sending…";
+    try{
+      const res = await fetch("/api/admin/forgot-password", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      okEl.textContent = data.message || "If eligible, a temporary password has been sent.";
+      document.getElementById("completeEmail").value = email;
+      document.getElementById("forgotGotCodeLink").style.display = "block";
+    }catch(e){
+      errEl.textContent = "Network error — please try again";
+    }finally{
+      btn.disabled = false; btn.textContent = "Send temporary password";
+    }
+  });
+
+  // Reachable from either "first-time setup" or "forgot password" once the
+  // admin has their temporary password in hand — same completion endpoint
+  // either way (see /api/admin/complete-setup).
+  function goToComplete(){ showAuthView("complete"); }
+  document.getElementById("generateGotCodeLink").addEventListener("click", goToComplete);
+  document.getElementById("forgotGotCodeLink").addEventListener("click", goToComplete);
+
+  document.getElementById("completeBtn").addEventListener("click", async ()=>{
+    const errEl = document.getElementById("completeError");
+    errEl.textContent = "";
+    const email = document.getElementById("completeEmail").value.trim();
+    const tempPassword = document.getElementById("completeTempPassword").value.trim();
+    const password = document.getElementById("completeNewPassword").value;
+    const confirmPassword = document.getElementById("completeConfirmPassword").value;
+    if(!email || !tempPassword){ errEl.textContent = "Enter your admin email and the temporary password"; return; }
+    if(!password || password.length < 8){ errEl.textContent = "Password must be at least 8 characters"; return; }
+    if(password !== confirmPassword){ errEl.textContent = "Passwords don't match"; return; }
+    const btn = document.getElementById("completeBtn");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try{
+      const res = await fetch("/api/admin/complete-setup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, tempPassword, password, confirmPassword })
+      });
+      const data = await res.json();
+      if(!res.ok){ errEl.textContent = data.error || "Could not set your password"; return; }
+      document.getElementById("loginEmail").value = email;
+      document.getElementById("completeTempPassword").value = "";
+      document.getElementById("completeNewPassword").value = "";
+      document.getElementById("completeConfirmPassword").value = "";
+      showAuthView("completeSuccess");
+    }catch(e){
+      errEl.textContent = "Network error — please try again";
+    }finally{
+      btn.disabled = false; btn.textContent = "Set password";
+    }
+  });
+
   const DEFAULT_DATA = null; // filled below by fallback fetch failure
 
   let CATEGORIES = [];
@@ -620,15 +903,13 @@
   }
 
   async function publishLive(){
-    const key = document.getElementById("adminKey").value.trim();
-    if(!key){ showToast("Enter the admin key first"); return; }
     const btn = document.getElementById("publishBtn");
     btn.disabled = true;
     btn.textContent = "Publishing…";
     try{
       const res = await fetch("/api/products", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-admin-key": key },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categories: CATEGORIES, products: PRODUCTS })
       });
       const data = await res.json();
@@ -905,11 +1186,11 @@
   });
 
   // ---------- Orders ----------
-  function getAdminKey(){
-    const key = document.getElementById("adminKey").value.trim();
-    if(!key) showToast("Enter the admin key first");
-    return key;
-  }
+  // Auth is now a cookie (see the admin auth gate above) rather than a key
+  // typed into the header, so every call-site below that used to gate on
+  // this just keeps working unchanged — same-origin fetches send the
+  // admin_session cookie automatically.
+  function getAdminKey(){ return true; }
 
   const ORDER_STATUSES = ["pending","awaiting_payment","processing","shipped","delivered","cancelled"];
 
@@ -919,7 +1200,7 @@
     const tbody = document.getElementById("ordersBody");
     tbody.innerHTML = `<tr class="empty-row"><td colspan="12">Loading…</td></tr>`;
     try{
-      const res = await fetch("/api/orders", { headers: { "x-admin-key": key } });
+      const res = await fetch("/api/orders", { headers: {} });
       const data = await res.json();
       if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="12">${data.error || "Could not load orders"}</td></tr>`; return; }
       window.__orders = data.orders;
@@ -994,7 +1275,7 @@
         try{
           const res = await fetch(`/api/orders/${sel.dataset.order}/status`, {
             method:"PUT",
-            headers:{ "Content-Type":"application/json", "x-admin-key": key },
+            headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ status: sel.value })
           });
           const data = await res.json();
@@ -1017,7 +1298,7 @@
     const tbody = document.getElementById("customersBody");
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
     try{
-      const res = await fetch("/api/customers", { headers: { "x-admin-key": key } });
+      const res = await fetch("/api/customers", { headers: {} });
       const data = await res.json();
       if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${data.error || "Could not load customers"}</td></tr>`; return; }
       document.getElementById("customerCount").textContent = `(${data.customers.length})`;
@@ -1056,7 +1337,7 @@
     const key = getAdminKey();
     if(!key) return;
     try{
-      const res = await fetch("/api/rewards/admin/overview", { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/rewards/admin/overview", { headers: {} });
       const data = await res.json();
       if(!res.ok){ showToast(data.error || "Could not load overview"); return; }
       document.getElementById("ovIssued").textContent = data.totalPointsIssued;
@@ -1072,7 +1353,7 @@
     const key = getAdminKey();
     if(!key) return;
     try{
-      const res = await fetch("/api/rewards/admin/settings", { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/rewards/admin/settings", { headers: {} });
       const data = await res.json();
       if(!res.ok){ showToast(data.error || "Could not load settings"); return; }
       const s = data.settings;
@@ -1099,7 +1380,7 @@
     };
     try{
       const res = await fetch("/api/rewards/admin/settings", {
-        method:"PUT", headers:{ "Content-Type":"application/json", "x-admin-key": key },
+        method:"PUT", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify(body)
       });
       const data = await res.json();
@@ -1116,7 +1397,7 @@
     tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Loading…</td></tr>`;
     try{
       const search = document.getElementById("rcSearch").value.trim();
-      const res = await fetch("/api/rewards/admin/customers" + (search ? `?search=${encodeURIComponent(search)}` : ""), { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/rewards/admin/customers" + (search ? `?search=${encodeURIComponent(search)}` : ""), { headers: {} });
       const data = await res.json();
       if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${data.error || "Could not load customers"}</td></tr>`; return; }
       window.__rewardsCustomers = data.customers;
@@ -1152,7 +1433,7 @@
     if(!reason){ showToast("Enter a reason"); return; }
     try{
       const res = await fetch("/api/rewards/admin/adjust", {
-        method:"POST", headers:{ "Content-Type":"application/json", "x-admin-key": key },
+        method:"POST", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ userId, points, reason })
       });
       const data = await res.json();
@@ -1174,7 +1455,7 @@
     const tbody = document.getElementById("txBody");
     tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Loading…</td></tr>`;
     try{
-      const res = await fetch("/api/rewards/admin/transactions", { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/rewards/admin/transactions", { headers: {} });
       const data = await res.json();
       if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${data.error || "Could not load transactions"}</td></tr>`; return; }
       document.getElementById("txCount").textContent = `(${data.transactions.length})`;
@@ -1199,7 +1480,7 @@
     const tbody = document.getElementById("refBody");
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
     try{
-      const res = await fetch("/api/rewards/admin/referrals", { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/rewards/admin/referrals", { headers: {} });
       const data = await res.json();
       if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${data.error || "Could not load referrals"}</td></tr>`; return; }
       document.getElementById("refCount").textContent = `(${data.referrals.length})`;
@@ -1222,7 +1503,7 @@
     const tbody = document.getElementById("vchBody");
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
     try{
-      const res = await fetch("/api/rewards/admin/vouchers", { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/rewards/admin/vouchers", { headers: {} });
       const data = await res.json();
       if(!res.ok){ tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${data.error || "Could not load vouchers"}</td></tr>`; return; }
       document.getElementById("vchCount").textContent = `(${data.vouchers.length})`;
@@ -1248,7 +1529,7 @@
     const grid = document.getElementById("flyerGrid");
     grid.innerHTML = `<p class="hint">Loading…</p>`;
     try{
-      const res = await fetch("/api/admin/flyers", { headers:{ "x-admin-key": key } });
+      const res = await fetch("/api/admin/flyers", { headers: {} });
       const data = await res.json();
       if(!res.ok){ grid.innerHTML = `<p class="hint">${data.error || "Could not load flyers"}</p>`; return; }
       window.__flyers = data.flyers;
@@ -1291,7 +1572,7 @@
     [list[idx], list[swapWith]] = [list[swapWith], list[idx]];
     try{
       const res = await fetch("/api/admin/flyers/reorder", {
-        method:"PUT", headers:{ "Content-Type":"application/json", "x-admin-key": key },
+        method:"PUT", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ order: list.map(f=>f.id) })
       });
       const data = await res.json();
@@ -1305,7 +1586,7 @@
     const key = getAdminKey();
     if(!key) return;
     try{
-      const res = await fetch(`/api/admin/flyers/${id}`, { method:"DELETE", headers:{ "x-admin-key": key } });
+      const res = await fetch(`/api/admin/flyers/${id}`, { method:"DELETE", headers: {} });
       const data = await res.json();
       if(!res.ok){ showToast(data.error || "Could not delete flyer"); return; }
       showToast("Flyer deleted");
@@ -1325,7 +1606,7 @@
     const fd = new FormData();
     for(const f of files) fd.append("flyers", f);
     try{
-      const res = await fetch("/api/admin/flyers", { method:"POST", headers:{ "x-admin-key": key }, body: fd });
+      const res = await fetch("/api/admin/flyers", { method:"POST", headers: {}, body: fd });
       const data = await res.json();
       if(!res.ok){ showToast(data.error || "Upload failed"); e.target.value=""; return; }
       showToast(`Uploaded ${data.flyers.length} flyer${data.flyers.length===1?"":"s"}`);
@@ -1341,7 +1622,7 @@
     const fd = new FormData();
     fd.append("flyer", file);
     try{
-      const res = await fetch(`/api/admin/flyers/${__flyerReplaceTargetId}/replace`, { method:"PUT", headers:{ "x-admin-key": key }, body: fd });
+      const res = await fetch(`/api/admin/flyers/${__flyerReplaceTargetId}/replace`, { method:"PUT", headers: {}, body: fd });
       const data = await res.json();
       if(!res.ok){ showToast(data.error || "Replace failed"); e.target.value=""; return; }
       showToast("Flyer replaced");
@@ -1386,11 +1667,9 @@
   }
 
   async function loadNotifications(){
-    const key = document.getElementById("adminKey").value.trim();
     const list = document.getElementById("notifList");
-    if(!key){ list.innerHTML = `<div class="notif-empty">Enter your admin key to view notifications.</div>`; return; }
     try{
-      const res = await fetch(`/api/admin/notifications?filter=${notifFilter}`, { headers: { "x-admin-key": key } });
+      const res = await fetch(`/api/admin/notifications?filter=${notifFilter}`, { headers: {} });
       const data = await res.json();
       if(!res.ok){ list.innerHTML = `<div class="notif-empty">${data.error || "Could not load notifications"}</div>`; return; }
       renderNotifUnreadBadge(data.unreadCount);
@@ -1411,8 +1690,7 @@
         item.addEventListener("click", async (e)=>{
           if(e.target.closest(".notif-dismiss")) return;
           if(!n.read){
-            const k = document.getElementById("adminKey").value.trim();
-            fetch(`/api/admin/notifications/${n.id}/read`, { method:"POST", headers:{ "x-admin-key": k } })
+            fetch(`/api/admin/notifications/${n.id}/read`, { method:"POST" })
               .then(()=>loadNotifications()).catch(()=>{});
           }
           document.getElementById("notifOverlay").classList.remove("active");
@@ -1420,9 +1698,7 @@
         });
         item.querySelector(".notif-dismiss").addEventListener("click", async (e)=>{
           e.stopPropagation();
-          const k = document.getElementById("adminKey").value.trim();
-          if(!k) return;
-          await fetch(`/api/admin/notifications/${n.id}`, { method:"DELETE", headers:{ "x-admin-key": k } }).catch(()=>{});
+          await fetch(`/api/admin/notifications/${n.id}`, { method:"DELETE" }).catch(()=>{});
           loadNotifications();
         });
         list.appendChild(item);
@@ -1452,9 +1728,7 @@
     });
   });
   document.getElementById("notifMarkAllBtn").addEventListener("click", async ()=>{
-    const key = document.getElementById("adminKey").value.trim();
-    if(!key){ showToast("Enter the admin key first"); return; }
-    await fetch("/api/admin/notifications/read-all", { method:"POST", headers:{ "x-admin-key": key } }).catch(()=>{});
+    await fetch("/api/admin/notifications/read-all", { method:"POST" }).catch(()=>{});
     loadNotifications();
   });
 
@@ -1495,11 +1769,13 @@
   }
 
   // ---------- Real-time: Server-Sent Events ----------
+  // EventSource automatically sends cookies for same-origin requests, so
+  // the admin_session cookie authenticates this the same way as every
+  // other admin fetch — no key in the URL needed anymore. Called once by
+  // the auth gate (showApp()) right after login/session-check succeeds.
   function connectNotificationStream(){
-    const key = document.getElementById("adminKey").value.trim();
-    if(!key) return;
     if(notifEventSource){ notifEventSource.close(); }
-    notifEventSource = new EventSource(`/api/admin/notifications/stream?key=${encodeURIComponent(key)}`);
+    notifEventSource = new EventSource("/api/admin/notifications/stream");
     notifEventSource.addEventListener("connected", e=>{
       try{ renderNotifUnreadBadge(JSON.parse(e.data).unreadCount); }catch(err){}
     });
@@ -1516,11 +1792,9 @@
       // blip; nothing extra to do here beyond letting that happen.
     };
   }
-  document.getElementById("adminKey").addEventListener("change", connectNotificationStream);
-  document.getElementById("adminKey").addEventListener("blur", connectNotificationStream);
-  updateDesktopNotifPrompt();
 
   loadData();
+  checkAdminSession();
 })();
 </script>
 </body>

@@ -40,11 +40,16 @@ db.query("SELECT NOW()")
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "change-this-admin-key";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// The app sits behind Render's reverse proxy — without this, req.ip and
+// req.secure would reflect the proxy, not the real client, which would
+// break the per-IP admin rate limiting below.
+app.set("trust proxy", 1);
 
 const stripe = STRIPE_SECRET_KEY ? require("stripe")(STRIPE_SECRET_KEY) : null;
 
@@ -55,9 +60,6 @@ const stripe = STRIPE_SECRET_KEY ? require("stripe")(STRIPE_SECRET_KEY) : null;
 // misleadingly implies JSON is still authoritative for any of them.
 const CONTACT_INBOX_EMAIL = process.env.CONTACT_INBOX_EMAIL || process.env.SMTP_USER || "";
 
-if (ADMIN_KEY === "change-this-admin-key") {
-  console.warn("\nWARNING: ADMIN_KEY is still the default — set a real one before deploying.\n");
-}
 if (!stripe) {
   console.warn("NOTE: STRIPE_SECRET_KEY not set — card payments are disabled, Cash on Delivery still works.");
 }
@@ -227,26 +229,114 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next) {
-  const key = req.get("x-admin-key");
-  if (!key || key !== ADMIN_KEY) {
-    return res.status(401).json({ error: "Missing or incorrect admin key" });
+// ---------- Admin auth ----------
+// Single authorized admin account (info@myshopswift.co.uk), stored as one
+// row in `admin_auth` (id is always 1 — see add-admin-auth.sql). The
+// permanent password lives only as a bcrypt hash in that row; temporary
+// setup/reset credentials live only as a SHA-256 hash with an expiry and a
+// single-use flag on the same row. Admin sessions are separate rows in
+// `admin_sessions`, referenced by an httpOnly cookie — the old shared
+// ADMIN_KEY header is gone; every admin route below now goes through
+// requireAdmin, which is the server-side authority these checks can't be
+// bypassed by anything sent from the client.
+
+const ADMIN_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
+const ADMIN_TEMP_CRED_TTL_MS = 20 * 60 * 1000; // 20 minutes — within the requested 15-30 min window
+const ADMIN_TEMP_CRED_BYTES = 12; // -> 24 hex chars, plenty of entropy for a one-time password
+
+function hashAdminToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Lazily creates the singleton admin_auth row the first time it's needed
+// (fresh deploys / first request after this migration), rather than
+// requiring a separate seed script. No password is set on creation — the
+// admin must go through "Generate password" first-time setup.
+async function getAdminAuth() {
+  const existing = await db.query(`SELECT * FROM admin_auth WHERE id = 1 LIMIT 1`);
+  if (existing.rows.length) return existing.rows[0];
+
+  await db.query(
+    `INSERT INTO admin_auth (id, email, password_hash, temp_hash, temp_expires_at, temp_used, updated_at)
+     VALUES (1, $1, NULL, NULL, NULL, true, NOW())
+     ON CONFLICT (id) DO NOTHING`,
+    [ADMIN_EMAIL]
+  );
+  const created = await db.query(`SELECT * FROM admin_auth WHERE id = 1 LIMIT 1`);
+  return created.rows[0];
+}
+
+async function createAdminSession() {
+  const token = crypto.randomBytes(32).toString("hex");
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ADMIN_SESSION_MAX_AGE_MS);
+  await db.query(
+    `INSERT INTO admin_sessions (token, expires_at, created_at) VALUES ($1, $2, $3)`,
+    [token, expiresAt, now]
+  );
+  return token;
+}
+
+function setAdminSessionCookie(res, token) {
+  res.cookie("admin_session", token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: IS_PRODUCTION,
+    maxAge: ADMIN_SESSION_MAX_AGE_MS
+  });
+}
+
+// Server-side authority for every protected admin route (and the SSE
+// stream below — EventSource sends cookies automatically for same-origin
+// requests, so the stream no longer needs a key in the URL). Never trusts
+// anything the client claims about its own role.
+async function requireAdmin(req, res, next) {
+  const token = req.cookies.admin_session;
+  if (!token) return res.status(401).json({ error: "Admin login required" });
+  try {
+    const result = await db.query(
+      `SELECT token FROM admin_sessions WHERE token = $1 AND expires_at > NOW() LIMIT 1`,
+      [token]
+    );
+    if (!result.rows.length) return res.status(401).json({ error: "Admin login required" });
+    next();
+  } catch (error) {
+    console.error("[admin-auth] Failed to verify admin session:", error.message);
+    res.status(500).json({ error: "Could not verify admin session" });
+  }
+}
+
+// ---------- Admin rate limiting ----------
+// Simple in-memory sliding-window limiter — no new dependency needed, and
+// this single-instance app doesn't need attempts to survive a restart.
+// Applied to every admin auth endpoint (login, first-time setup request,
+// forgot-password, and completing a setup/reset) to slow brute-forcing.
+const adminRateLimitHits = new Map(); // ip -> { count, windowStart }
+const ADMIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_RATE_LIMIT_MAX = 10;
+
+function adminRateLimit(req, res, next) {
+  const ip = req.ip || "unknown";
+  const now = Date.now();
+  const entry = adminRateLimitHits.get(ip);
+  if (!entry || now - entry.windowStart > ADMIN_RATE_LIMIT_WINDOW_MS) {
+    adminRateLimitHits.set(ip, { count: 1, windowStart: now });
+    return next();
+  }
+  entry.count++;
+  if (entry.count > ADMIN_RATE_LIMIT_MAX) {
+    return res.status(429).json({ error: "Too many attempts — please try again later" });
   }
   next();
 }
 
-// SSE connections (EventSource) can't send custom headers, only a URL —
-// so the one-time stream-open request is authenticated via a query param
-// instead of the x-admin-key header every other admin route uses. This is
-// the standard workaround for authenticating SSE with a native EventSource
-// client; it's used nowhere else in the app.
-function requireAdminForStream(req, res, next) {
-  const key = req.query.key;
-  if (!key || key !== ADMIN_KEY) {
-    return res.status(401).json({ error: "Missing or incorrect admin key" });
+// Periodic sweep so the map doesn't grow forever on a long-running process.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of adminRateLimitHits) {
+    if (now - entry.windowStart > ADMIN_RATE_LIMIT_WINDOW_MS) adminRateLimitHits.delete(ip);
   }
-  next();
-}
+}, ADMIN_RATE_LIMIT_WINDOW_MS).unref();
 
 const PAYMENT_METHOD_LABELS = { cod: "Cash on Delivery", card: "Online Payment (Card)", points: "Points Payment" };
 const fmtGBP = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -629,6 +719,181 @@ app.put("/api/products", requireAdmin, async (req, res) => {
 });
 
 app.post("/api/admin/verify", requireAdmin, (req, res) => res.json({ ok: true }));
+
+// ---------- Admin authentication ----------
+// A generic response used by every one of these endpoints whenever the
+// submitted email doesn't match ADMIN_EMAIL, or a lookup/DB error occurs —
+// so the response is never a way to probe whether info@myshopswift.co.uk
+// is "the" admin email, or the current internal setup/reset state.
+const ADMIN_GENERIC_AUTH_ERROR = "Incorrect email or password";
+const ADMIN_GENERIC_REQUEST_MESSAGE = "If this is the authorized admin account, a temporary password has been sent to it.";
+
+function isAuthorizedAdminEmail(email) {
+  return !!ADMIN_EMAIL && typeof email === "string" && email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+}
+
+app.post("/api/admin/login", adminRateLimit, async (req, res) => {
+  const { email: rawEmail, password } = req.body || {};
+  if (!rawEmail || !password) {
+    return res.status(400).json({ error: ADMIN_GENERIC_AUTH_ERROR });
+  }
+  if (!isAuthorizedAdminEmail(rawEmail)) {
+    return res.status(401).json({ error: ADMIN_GENERIC_AUTH_ERROR });
+  }
+
+  try {
+    const admin = await getAdminAuth();
+    if (!admin.password_hash) {
+      // No permanent password set yet — same generic error rather than a
+      // distinct "no password set" message, so this endpoint can't be used
+      // to probe setup state. The admin's own "Generate password" link on
+      // the login screen is how first-time setup is actually discovered.
+      return res.status(401).json({ error: ADMIN_GENERIC_AUTH_ERROR });
+    }
+
+    const validPassword = await bcrypt.compare(password, admin.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: ADMIN_GENERIC_AUTH_ERROR });
+    }
+
+    const token = await createAdminSession();
+    setAdminSessionCookie(res, token);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[admin-auth] Login failed:", error.message);
+    res.status(500).json({ error: "Could not log in — please try again" });
+  }
+});
+
+app.post("/api/admin/logout", async (req, res) => {
+  const token = req.cookies.admin_session;
+  if (token) {
+    try {
+      await db.query(`DELETE FROM admin_sessions WHERE token = $1`, [token]);
+    } catch (error) {
+      console.error("[admin-auth] Failed to delete admin session on logout:", error.message);
+    }
+  }
+  res.clearCookie("admin_session");
+  res.json({ ok: true });
+});
+
+// Issues a fresh single-use, short-lived temporary password and emails it
+// to ADMIN_EMAIL. Shared by both "first-time setup" and "forgot password" —
+// the only difference between those two entry points is which button the
+// admin clicked; the credential lifecycle is identical, and both funnel
+// into the same /api/admin/complete-setup below.
+async function issueAdminTempCredential() {
+  const tempPassword = crypto.randomBytes(ADMIN_TEMP_CRED_BYTES).toString("hex");
+  const tempHash = hashAdminToken(tempPassword);
+  const expiresAt = new Date(Date.now() + ADMIN_TEMP_CRED_TTL_MS);
+
+  await db.query(
+    `UPDATE admin_auth
+     SET temp_hash = $1, temp_expires_at = $2, temp_used = false, updated_at = NOW()
+     WHERE id = 1`,
+    [tempHash, expiresAt]
+  );
+
+  await email.sendMail({
+    to: ADMIN_EMAIL,
+    subject: "Your MyShopSwift admin temporary password",
+    text: `Temporary admin password: ${tempPassword}\n\nThis expires in 20 minutes and can only be used once, to set a new permanent password. If you didn't request this, you can ignore this email — your existing password (if any) still works.\n\n— MyShopSwift`,
+    html: `
+      <p>Temporary admin password:</p>
+      <p style="font-family:monospace;font-size:18px;background:#EBF0F8;padding:10px 14px;display:inline-block;">${tempPassword}</p>
+      <p style="font-size:13px;color:#666;">This expires in 20 minutes and can only be used once, to set a new permanent password. If you didn't request this, you can ignore this email — your existing password (if any) still works.</p>
+      <p>— MyShopSwift</p>
+    `
+  });
+}
+
+// First-time setup: only issues a credential when no permanent password
+// exists yet. Always responds with the same generic message either way.
+app.post("/api/admin/generate-password", adminRateLimit, async (req, res) => {
+  const { email: rawEmail } = req.body || {};
+
+  if (isAuthorizedAdminEmail(rawEmail)) {
+    try {
+      const admin = await getAdminAuth();
+      if (!admin.password_hash) {
+        await issueAdminTempCredential();
+      }
+    } catch (error) {
+      console.error("[admin-auth] generate-password failed:", error.message);
+      // Fall through to the same generic response below.
+    }
+  }
+
+  res.json({ message: ADMIN_GENERIC_REQUEST_MESSAGE });
+});
+
+// Forgot password: only issues a credential when a permanent password
+// already exists (first-time setup uses generate-password above instead).
+// Always responds with the same generic message either way.
+app.post("/api/admin/forgot-password", adminRateLimit, async (req, res) => {
+  const { email: rawEmail } = req.body || {};
+
+  if (isAuthorizedAdminEmail(rawEmail)) {
+    try {
+      const admin = await getAdminAuth();
+      if (admin.password_hash) {
+        await issueAdminTempCredential();
+      }
+    } catch (error) {
+      console.error("[admin-auth] forgot-password failed:", error.message);
+      // Fall through to the same generic response below.
+    }
+  }
+
+  res.json({ message: ADMIN_GENERIC_REQUEST_MESSAGE });
+});
+
+// Completes either flow above: verifies the temporary password against the
+// stored hash (unexpired, unused), then sets the new permanent password.
+// Never auto-logs the admin in — they log in normally afterward with the
+// password they just chose.
+app.post("/api/admin/complete-setup", adminRateLimit, async (req, res) => {
+  const { email: rawEmail, tempPassword, password, confirmPassword } = req.body || {};
+
+  if (!isAuthorizedAdminEmail(rawEmail) || !tempPassword) {
+    return res.status(400).json({ error: "This temporary password is invalid or has expired" });
+  }
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+  if (password !== confirmPassword) {
+    return res.status(400).json({ error: "Passwords don't match" });
+  }
+
+  try {
+    const admin = await getAdminAuth();
+    const tempHash = hashAdminToken(tempPassword);
+
+    if (
+      !admin.temp_hash ||
+      admin.temp_used ||
+      admin.temp_hash !== tempHash ||
+      !admin.temp_expires_at ||
+      new Date(admin.temp_expires_at).getTime() < Date.now()
+    ) {
+      return res.status(400).json({ error: "This temporary password is invalid or has expired" });
+    }
+
+    const newPasswordHash = await bcrypt.hash(password, 10);
+    await db.query(
+      `UPDATE admin_auth
+       SET password_hash = $1, temp_used = true, updated_at = NOW()
+       WHERE id = 1`,
+      [newPasswordHash]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[admin-auth] complete-setup failed:", error.message);
+    res.status(500).json({ error: "Could not set your password — please try again" });
+  }
+});
 
 // ==================== ACCOUNTS ====================
 
@@ -1442,9 +1707,10 @@ app.put("/api/orders/:id/status", requireAdmin, async (req, res) => {
 
 // ==================== ADMIN NOTIFICATIONS ====================
 
-// Real-time stream. Auth via ?key= (see requireAdminForStream) since
-// EventSource can't set the x-admin-key header every other admin route uses.
-app.get("/api/admin/notifications/stream", requireAdminForStream, async (req, res) => {
+// Real-time stream. EventSource sends cookies automatically for a
+// same-origin URL, so the normal cookie-based requireAdmin works here too —
+// no key-in-the-URL workaround needed anymore.
+app.get("/api/admin/notifications/stream", requireAdmin, async (req, res) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
