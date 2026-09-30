@@ -1,0 +1,14 @@
+node_modules/
+.env
+*.log
+.DS_Store
+# production/locally  application data
+data/
+
+# server-side backups
+data/backups/
+
+# os/editor files
+.DS_Store
+Thumbs.db
+.vscode/
