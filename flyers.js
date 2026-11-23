@@ -1,22 +1,25 @@
 // MyShopSwift — Brand Flyers / Featured Brands carousel
 //
-// Postgres-backed: both the metadata AND the actual image bytes live in a
-// single "flyers" table (image_data is bytea). This exists specifically
-// because Render's free plan has no persistent disk — its local filesystem
-// is wiped on every redeploy and on every spin-down after inactivity, so
-// storing uploaded images on disk (the previous design) meant they'd
-// silently disappear. Images are served back out via a dedicated route in
-// server.js (GET /uploads/flyers/:id) rather than express.static, since
-// there's no longer a directory to serve from.
+// Flyer metadata (order, name, …) lives in the Postgres "flyers" table.
+// NEW and replacement flyer images are uploaded to Cloudinary (image-store.js)
+// and the row just stores the Cloudinary URL (image_url) + public id; no image
+// bytes are written to PostgreSQL any more (image_data is left as an empty
+// value for those rows).
 //
-// Multer is configured with memoryStorage (not diskStorage) so an upload
-// never touches the local filesystem at all — the file arrives as
-// `file.buffer` and goes straight into the database.
+// Flyers uploaded BEFORE the Cloudinary migration still have their bytes in
+// image_data and keep being served from GET /uploads/flyers/:id (server.js)
+// until migrate-images-to-cloudinary.js has copied them over and verified the
+// copy. image_data is never cleared or deleted by this code, so it remains the
+// backup. Likewise nothing here ever deletes a Cloudinary asset: deleting or
+// replacing a flyer only changes/removes the database row's reference.
+//
+// Multer uses memoryStorage, so an upload never touches the local
+// filesystem — the file arrives as `file.buffer`.
 
 const crypto = require("crypto");
 const multer = require("multer");
 
-module.exports = function (db) {
+module.exports = function (db, store) {
 
 function sorted(list) { return list.slice().sort((a, b) => a.order - b.order); }
 
@@ -48,35 +51,83 @@ const uploadSingle = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_
 function rowToFlyer(row) {
   return {
     id: row.id,
+    url: flyerUrl(row), // the admin grid shows this as the preview
     originalName: row.original_name,
     mimeType: row.mime_type,
     order: row.display_order,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
   };
 }
+// Cloudinary URL once the flyer is in Cloudinary; the old served-from-Postgres
+// URL until then.
+function flyerUrl(row) {
+  return row.image_url || `/uploads/flyers/${row.id}`;
+}
 function publicFlyer(row) {
-  return { id: row.id, url: `/uploads/flyers/${row.id}`, order: row.display_order };
+  return { id: row.id, url: flyerUrl(row), order: row.display_order };
+}
+
+// The image_url column is added by add-cloudinary-images.sql (run at startup).
+// If a request lands before that has happened, fall back to the old query
+// instead of breaking the storefront's flyer carousel.
+async function queryWithFallback(sql, legacySql, params = []) {
+  try { return await db.query(sql, params); }
+  catch (error) {
+    if (error.code === "42703") return db.query(legacySql, params); // undefined_column
+    throw error;
+  }
 }
 
 // ---------- CRUD ----------
 async function listPublic() {
-  const result = await db.query(`SELECT id, display_order FROM flyers ORDER BY display_order`);
+  const result = await queryWithFallback(
+    `SELECT id, display_order, image_url FROM flyers ORDER BY display_order`,
+    `SELECT id, display_order FROM flyers ORDER BY display_order`
+  );
   return result.rows.map(publicFlyer);
 }
 
 async function listAdmin() {
-  const result = await db.query(`SELECT id, original_name, mime_type, display_order, created_at FROM flyers ORDER BY display_order`);
+  const result = await queryWithFallback(
+    `SELECT id, original_name, mime_type, display_order, created_at, image_url FROM flyers ORDER BY display_order`,
+    `SELECT id, original_name, mime_type, display_order, created_at FROM flyers ORDER BY display_order`
+  );
   return result.rows.map(rowToFlyer);
 }
 
-// Returns { mimeType, imageData } for serving the raw bytes, or null.
+// For GET /uploads/flyers/:id. Returns
+//   { redirectUrl }          – the flyer is in Cloudinary: send the browser there
+//   { mimeType, imageData }  – not migrated yet: serve the stored bytes
+//   null                     – unknown flyer
 async function getImage(id) {
-  const result = await db.query(`SELECT mime_type, image_data FROM flyers WHERE id = $1`, [id]);
+  const result = await queryWithFallback(
+    `SELECT mime_type, image_data, image_url FROM flyers WHERE id = $1`,
+    `SELECT mime_type, image_data FROM flyers WHERE id = $1`,
+    [id]
+  );
   if (!result.rows.length) return null;
-  return { mimeType: result.rows[0].mime_type, imageData: result.rows[0].image_data };
+  const row = result.rows[0];
+  if (row.image_url) return { redirectUrl: row.image_url };
+  if (!row.image_data || row.image_data.length === 0) return null;
+  return { mimeType: row.mime_type, imageData: row.image_data };
+}
+
+// Upload failures carry the HTTP status/message the route should answer with.
+function uploadError(file, result) {
+  const name = file && file.originalname ? ` (${String(file.originalname).slice(0, 60)})` : "";
+  return Object.assign(new Error(result.error + name), { status: result.status, publicMessage: result.error + name });
 }
 
 async function addFlyers(files) {
+  // Upload everything to Cloudinary FIRST, so the database transaction below
+  // never waits on the network and a failed upload adds nothing at all.
+  const stored = [];
+  for (const file of files) {
+    const result = await store.save(file, "flyer");
+    if (result.error) throw uploadError(file, result);
+    stored.push({ file, ...result });
+  }
+
   const client = await db.connect();
   try {
     await client.query("BEGIN");
@@ -84,13 +135,15 @@ async function addFlyers(files) {
     let nextOrder = maxResult.rows[0].max_order + 1;
 
     const created = [];
-    for (const file of files) {
+    for (const item of stored) {
       const id = crypto.randomUUID();
       const createdAt = new Date().toISOString();
+      // image_data stays NOT NULL in the existing table, so new rows get an
+      // empty value: the picture itself is only in Cloudinary.
       const inserted = await client.query(
-        `INSERT INTO flyers (id, original_name, mime_type, image_data, display_order, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, display_order`,
-        [id, file.originalname, file.mimetype, file.buffer, nextOrder++, createdAt]
+        `INSERT INTO flyers (id, original_name, mime_type, image_data, image_url, cloudinary_public_id, display_order, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, display_order, image_url`,
+        [id, item.file.originalname, item.mimeType, Buffer.alloc(0), item.url, item.publicId, nextOrder++, createdAt]
       );
       created.push(publicFlyer(inserted.rows[0]));
     }
@@ -112,10 +165,18 @@ async function deleteFlyer(id) {
 }
 
 async function replaceFlyer(id, file) {
+  const exists = await db.query(`SELECT id FROM flyers WHERE id = $1`, [id]);
+  if (!exists.rows.length) return { error: "Flyer not found" };
+
+  const stored = await store.save(file, "flyer");
+  if (stored.error) throw uploadError(file, stored);
+
+  // Only the reference changes. The previous image (Cloudinary asset, or the
+  // original bytes in image_data) is deliberately left where it is.
   const result = await db.query(
-    `UPDATE flyers SET original_name = $1, mime_type = $2, image_data = $3, created_at = $4
-     WHERE id = $5 RETURNING id, display_order`,
-    [file.originalname, file.mimetype, file.buffer, new Date().toISOString(), id]
+    `UPDATE flyers SET original_name = $1, mime_type = $2, image_url = $3, cloudinary_public_id = $4, created_at = $5
+     WHERE id = $6 RETURNING id, display_order, image_url`,
+    [file.originalname, stored.mimeType, stored.url, stored.publicId, new Date().toISOString(), id]
   );
   if (!result.rows.length) return { error: "Flyer not found" };
   return { flyer: publicFlyer(result.rows[0]) };

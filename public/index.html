@@ -84,7 +84,7 @@
     letter-spacing:.1em;
     color:var(--rust);
     font-family:Arial;
-    font-weight:bolder ;
+    font-weight:bolder;
   }
   .search-box{
     flex:1;max-width:440px;
@@ -650,7 +650,6 @@
   <section class="section wrap">
     <div class="section-head">
       <div>
-        <span class="num">01 — SECTIONS OF THE MARKET</span>
         <h2>Shop by category</h2>
       </div>
     </div>
@@ -660,7 +659,6 @@
   <section class="section wrap" id="featured">
     <div class="section-head">
       <div>
-        <span class="num">02 — TODAY'S PICKS</span>
         <h2>Best-selling products</h2>
       </div>
       <a href="#" class="view-all" data-cat="all">View all products →</a>
@@ -673,7 +671,6 @@
   <section class="section wrap" id="gadgets">
     <div class="section-head">
       <div>
-        <span class="num">03 — NEW SECTION</span>
         <h2>Gadgets &amp; Accessories</h2>
       </div>
       <a href="#" class="view-all" data-cat="Gadgets & Accessories">View all →</a>
@@ -689,9 +686,9 @@
         <p>MyShopSwift brings together groceries, condiments, drinks, beauty essentials, and everyday gadgets and accessories in one place.</p>
       </div>
       <div class="stat-grid">
-        <div class="stat"><div class="n">10</div><div class="l">PRODUCT CATEGORIES</div></div>
+        <div class="stat"><div class="n">10+</div><div class="l">PRODUCT CATEGORIES</div></div>
         <div class="stat"><div class="n">200+</div><div class="l">ITEMS IN STOCK</div></div>
-        <div class="stat"><div class="n">2</div><div class="l">CITIES SERVED</div></div>
+        <div class="stat"><div class="n">10+</div><div class="l">CITIES SERVED</div></div>
         <div class="stat"><div class="n">24HR</div><div class="l">MANCHESTER DISPATCH</div></div>
       </div>
     </div>
@@ -700,7 +697,6 @@
   <section class="section wrap" id="allProducts">
     <div class="section-head">
       <div>
-        <span class="num">04 — FULL CATALOGUE</span>
         <h2 id="catalogueTitle">All products</h2>
       </div>
     </div>
@@ -725,7 +721,11 @@
   <div class="footer-inner">
     <div>
       <div class="foot-logo">MyShopSwift</div>
-      <p class="small">Shop easy. Order fast. Delivered swift. English and Afro Carribean groceries, provisions, and everyday gadgets — delivered across the UK.</p>
+      <p class="small">Shop Smart. Shop Easy. Delivered Swift.
+       Your trusted online destination for everyday essentials, English and Afro-Caribbean groceries, provisions, household products and lifestyle essentials.
+       Discover a smarter way to shop with convenient online ordering and AI-powered shopping assistance designed to help you find what you need, faster and easier.
+       More Choice. More Convenience. Smarter Shopping.
+      </p>
     </div>
     <div>
       <h5>Shop</h5>
@@ -739,6 +739,7 @@
         <li><a href="track-order.html">Track Order</a></li>
         <li><a href="returns.html">Returns &amp; Refunds</a></li>
         <li><a href="faq.html">FAQ</a></li>
+        <li><a href="GDPR.html">GDPR</a></li>
       </ul>
     </div>
     <div>
@@ -1007,10 +1008,29 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="orderConfirmOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="orderConfirmTitle">Order placed</h3>
+      <button class="modal-close" data-close-order-confirm aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;margin:0;" id="orderConfirmText"></p>
+      <p style="font-size:13px;color:#666;margin:0;">Questions about this order? Message our team on WhatsApp. This is a support chat, not automatic live tracking.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close-order-confirm>Close</button>
+      <a class="btn btn-dark" id="orderConfirmWhatsApp" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Message us on WhatsApp</a>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">Added to basket</div>
 
 
 
+<script src="assets/cdn-image.js"></script>
+<script src="assets/whatsapp.js"></script>
 <script>
 (function(){
   // ---------- Data ----------
@@ -1133,15 +1153,15 @@
     div.className = "cat-card" + (c.featured ? " gadgets" : "") + (c.image ? " has-image" : "");
     div.innerHTML = c.image
       ? `
-        <img src="${c.image}" alt="${c.name}">
+        <img src="${escapeHtml(cdnImg(c.image, 640))}" alt="${escapeHtml(c.name)}">
         <div>
-          <h3>${c.name}</h3>
+          <h3>${escapeHtml(c.name)}</h3>
           <span class="cat-count">${count} items</span>
         </div>`
       : `
         <span class="cat-icon">${c.icon}</span>
         <div>
-          <h3>${c.name}</h3>
+          <h3>${escapeHtml(c.name)}</h3>
           <span class="cat-count">${count} items</span>
         </div>`;
     div.addEventListener("click", ()=>filterAndScroll(c.name));
@@ -1165,22 +1185,22 @@
     const card = document.createElement("div");
     card.className = "prod-card";
     const media = p.image
-      ? `<img src="${p.image}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;">`
+      ? `<img src="${escapeHtml(cdnImg(p.image, 640))}" alt="${escapeHtml(p.name)}" style="width:100%;height:100%;object-fit:cover;">`
       : `<span style="font-size:44px;">${p.icon}</span>`;
     card.innerHTML = `
       <div class="prod-media">
-        ${p.tag ? `<span class="tag">${p.tag}</span>` : ""}
+        ${p.tag ? `<span class="tag">${escapeHtml(p.tag)}</span>` : ""}
         ${media}
       </div>
       <div class="prod-body">
-        <span class="cat-label">${p.cat}</span>
-        <h4>${p.name}</h4>
+        <span class="cat-label">${escapeHtml(p.cat)}</span>
+        <h4>${escapeHtml(p.name)}</h4>
         <div class="prod-foot">
           <div class="price-block">
             ${p.old ? `<span class="price-old">${fmt(p.old)}</span>` : ""}
             <span class="price">${fmt(p.price)}</span>
           </div>
-          <button class="add-btn" aria-label="Add ${p.name} to basket" data-id="${p.id}">+</button>
+          <button class="add-btn" aria-label="Add ${escapeHtml(p.name)} to basket" data-id="${p.id}">+</button>
         </div>
       </div>`;
     card.querySelector(".add-btn").addEventListener("click", ()=>openProductOptions(p.id));
@@ -1312,9 +1332,9 @@
         const row = document.createElement("div");
         row.className = "cart-item";
         row.innerHTML = `
-          <div class="ci-thumb">${p.image ? `<img src="${p.image}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;">` : p.icon}</div>
+          <div class="ci-thumb">${p.image ? `<img src="${escapeHtml(cdnImg(p.image, 160))}" alt="${escapeHtml(p.name)}" style="width:100%;height:100%;object-fit:cover;">` : p.icon}</div>
           <div class="ci-body">
-            <h5>${p.name}</h5>
+            <h5>${escapeHtml(p.name)}</h5>
             <span class="ci-unit-price">${fmt(p.price)}</span>
             ${metaBits.length ? `<div class="ci-meta">${metaBits.join("")}<button type="button" class="ci-edit-options">Edit options</button></div>` : `<button type="button" class="ci-edit-options" style="margin-top:6px;">Add replacement/note</button>`}
             <div class="ci-controls">
@@ -1353,7 +1373,7 @@
 
     poQty = existingLine ? existingLine.qty : 1;
     document.getElementById("poThumb").innerHTML = poProduct.image
-      ? `<img src="${poProduct.image}" alt="${poProduct.name}">`
+      ? `<img src="${escapeHtml(cdnImg(poProduct.image, 800))}" alt="${escapeHtml(poProduct.name)}">`
       : `<span>${poProduct.icon||""}</span>`;
     document.getElementById("poName").textContent = poProduct.name;
     document.getElementById("poUnitPrice").textContent = fmt(poProduct.price) + " each";
@@ -1725,10 +1745,13 @@
       const data = await res.json();
       const orders = data.orders || [];
       if(orders.length === 0){ box.innerHTML = `<div class="no-orders">No orders yet.</div>`; return; }
-      box.innerHTML = orders.slice().reverse().map(o => `
-        <div class="order-row">
-          <span>${new Date(o.createdAt).toLocaleDateString("en-GB")} — ${fmt(o.total)}</span>
+      // /api/orders/mine already returns newest first — reversing it here put
+      // the oldest orders at the top.
+      box.innerHTML = orders.map(o => `
+        <div class="order-row" style="flex-wrap:wrap;gap:4px 10px;">
+          <span>${new Date(o.createdAt).toLocaleDateString("en-GB")} — ${fmt(o.total)} — ${window.MSSWhatsApp.ref(o.id)}</span>
           <span class="status">${o.status.replace("_"," ")}</span>
+          <a href="${window.MSSWhatsApp.link(o.id)}" target="_blank" rel="noopener noreferrer" style="flex-basis:100%;font-size:11.5px;color:var(--indigo);text-decoration:underline;">Message us on WhatsApp about this order</a>
         </div>`).join("");
     }catch(e){ box.innerHTML = `<div class="no-orders">Couldn't load your orders.</div>`; }
   }
@@ -1895,6 +1918,20 @@
     checkoutOverlay.classList.add("active");
   }
   function closeCheckoutModal(){ checkoutOverlay.classList.remove("active"); }
+
+  // Order confirmation with a WhatsApp enquiry shortcut (see assets/whatsapp.js).
+  const orderConfirmOverlay = document.getElementById("orderConfirmOverlay");
+  function showOrderConfirmation(order, paid){
+    if(!order || !order.id) return;
+    const ref = window.MSSWhatsApp.ref(order.id);
+    document.getElementById("orderConfirmTitle").textContent = paid ? "Payment confirmed" : "Order placed";
+    document.getElementById("orderConfirmText").textContent = `Thank you! Your order reference is ${ref}. Keep it handy if you need to contact us about this order.`;
+    document.getElementById("orderConfirmWhatsApp").href = window.MSSWhatsApp.link(order.id);
+    orderConfirmOverlay.classList.add("active");
+  }
+  function closeOrderConfirmation(){ orderConfirmOverlay.classList.remove("active"); }
+  document.querySelectorAll("[data-close-order-confirm]").forEach(el=>el.addEventListener("click", closeOrderConfirmation));
+  orderConfirmOverlay.addEventListener("click", e=>{ if(e.target===orderConfirmOverlay) closeOrderConfirmation(); });
   document.querySelectorAll("[data-close-checkout]").forEach(el=>el.addEventListener("click", closeCheckoutModal));
   checkoutOverlay.addEventListener("click", e=>{ if(e.target===checkoutOverlay) closeCheckoutModal(); });
 
@@ -1959,6 +1996,7 @@
       renderCart();
       closeCheckoutModal();
       showToast("Order placed — thank you!");
+      showOrderConfirmation(data.order, false);
       loadRewards();
     }catch(e){ errEl.textContent = "Network error — try again"; }
     finally{ btn.disabled = false; btn.textContent = "Place order"; }
@@ -1990,6 +2028,7 @@
         const data = await res.json();
         if(res.ok){
           showToast("Payment confirmed — thank you!");
+          showOrderConfirmation(data.order, true);
           loadRewards();
         } else {
           showToast(data.error || "Could not confirm payment");
@@ -2039,7 +2078,7 @@
     function render(){
       if(flyerList.length === 0){ section.style.display = "none"; stopAutoplay(); return; }
       section.style.display = "";
-      track.innerHTML = flyerList.map(f => `<div class="flyer-slide"><img src="${f.url}" alt="Brand flyer" loading="lazy"></div>`).join("");
+      track.innerHTML = flyerList.map(f => `<div class="flyer-slide"><img src="${escapeHtml(cdnImg(f.url, 1400))}" alt="Brand flyer" loading="lazy"></div>`).join("");
       const multi = flyerList.length > 1;
       prevBtn.style.display = multi ? "flex" : "none";
       nextBtn.style.display = multi ? "flex" : "none";

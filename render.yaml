@@ -1,7 +1,9 @@
 # Render Blueprint — lets you deploy this whole app by connecting
 # your repo at https://dashboard.render.com/blueprints and picking
-# this file. You'll still need to set DATABASE_URL, ADMIN_KEY,
-# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PUBLIC_URL, and OPENAI_API_KEY yourself in the
+# this file. You'll still need to set DATABASE_URL, ADMIN_EMAIL (see .env.example),
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PUBLIC_URL, OPENAI_API_KEY and (for customer
+# SMS) TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM, and (for image uploads)
+# CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET yourself in the
 # Render dashboard after it's created, since real secrets should never live
 # in a committed file.
 #
@@ -20,9 +22,11 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: NODE_ENV
+        value: production
       - key: DATABASE_URL
         sync: false
-      - key: ADMIN_KEY
+      - key: ADMIN_EMAIL
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
@@ -31,4 +35,16 @@ services:
       - key: PUBLIC_URL
         sync: false
       - key: OPENAI_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
         sync: false

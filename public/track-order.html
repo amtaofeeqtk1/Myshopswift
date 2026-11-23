@@ -119,6 +119,7 @@
   </div>
 </footer>
 
+<script src="assets/whatsapp.js"></script>
 <script>
 (function(){
   const STATUS_LABELS = {
@@ -139,6 +140,10 @@
       <div class="order-status-row"><span>Items</span><span>${o.items.reduce((s,i)=>s+i.qty,0)}</span></div>
       <div class="order-status-row"><span>Total</span><span>${fmt(o.total)}</span></div>
       <div class="order-status-row"><span>Payment</span><span>${o.paymentMethod === "points" ? "Points" : (o.paymentMethod === "cod" ? "Cash on Delivery" : "Card")}</span></div>
+      <div style="margin-top:14px;">
+        <a class="btn btn-outline" href="${window.MSSWhatsApp.link(o.id)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Message us on WhatsApp about this order</a>
+        <p style="font-size:12.5px;color:#666;margin:8px 0 0;">Opens a chat with our team. It isn't automatic live tracking — the status above is the latest on your account.</p>
+      </div>
     `;
   }
 
@@ -153,7 +158,7 @@
         list.textContent = "You haven't placed any orders yet.";
         return;
       }
-      list.innerHTML = myOrders.slice().reverse().slice(0,8).map(o => `
+      list.innerHTML = myOrders.slice(0,8).map(o => `
         <div class="order-status-row" style="cursor:pointer;" data-order="${o.id}">
           <span>${o.id.slice(0,8)} — ${new Date(o.createdAt).toLocaleDateString("en-GB")}</span>
           <span class="status-pill">${STATUS_LABELS[o.status] || o.status}</span>

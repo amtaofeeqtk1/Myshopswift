@@ -17,6 +17,7 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const path = require("path");
 const email = require("./email");
+const smsLib = require("./sms");
 const { Pool } = require("pg");
 
 const db = new Pool({
@@ -31,11 +32,33 @@ const db = new Pool({
 // alongside the other requires above.
 const notifications = require("./notifications")(db);
 const rewards = require("./rewards")(db);
-const flyers = require("./flyers")(db);
+// Image storage: new uploads go to Cloudinary (cloudinary.js / image-store.js);
+// PostgreSQL only keeps references and metadata for them.
+const imageStore = require("./image-store")({ db });
+const flyers = require("./flyers")(db, imageStore);
+
+// Customer SMS notifications (see order-sms.js). getOrderById is a function
+// declaration further down, so it's safe to reference from here.
+const orderSms = require("./order-sms")({ db, getOrderById: id => getOrderById(id) });
+
+// Admin photo uploads for products/categories (see product-images.js).
+const productImages = require("./product-images")(db, imageStore);
 
 db.query("SELECT NOW()")
-  .then(() => console.log("PostgreSQL database connected"))
+  .then(() => {
+    console.log("PostgreSQL database connected");
+    return Promise.all([
+      orderSms.ensureSchema(),      // creates sms_notifications if missing; never throws
+      imageStore.ensureSchema()     // creates image_assets / image_migrations (+ flyer columns) if missing; never throws
+    ]);
+  })
   .catch(err => console.error("PostgreSQL connection failed:", err.message));
+
+// A forgotten .catch() on a fire-and-forget task must never take the whole
+// shop down (Node exits on unhandled rejections by default).
+process.on("unhandledRejection", reason => {
+  console.error("[process] Unhandled promise rejection:", reason && reason.message ? reason.message : reason);
+});
 
 
 const app = express();
@@ -66,6 +89,14 @@ if (!stripe) {
 if (!ADMIN_EMAIL) {
   console.warn("NOTE: ADMIN_EMAIL not set — new-order emails will be skipped (dashboard/browser notifications still work).");
 }
+if (!imageStore.config.configured) {
+  console.warn("NOTE: Cloudinary isn't configured (CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET missing) — admin photo and flyer uploads will be refused until it is. Existing images keep displaying.");
+}
+imageStore.config.problems.forEach(p => console.warn("NOTE: Cloudinary config problem — " + p));
+if (!orderSms.config.configured) {
+  console.warn("NOTE: SMS isn't configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM or TWILIO_MESSAGING_SERVICE_SID missing, or SMS_ENABLED=false) — customer SMS notifications are off. Email is unaffected.");
+}
+orderSms.config.problems.forEach(p => console.warn("NOTE: SMS config problem — " + p));
 
 // ---------- Stripe Webhook (must come BEFORE express.json) ----------
 app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
@@ -122,9 +153,19 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
           console.log(`Order ${orderId} confirmed via webhook`);
           notifyNewOrder(order);
           sendPaymentConfirmedEmailOnce(order);
+          orderSms.notify(order, "payment_confirmed"); // verified by the signed Stripe event above
+        } else if (order && order.status === "cancelled") {
+          // Customer paid for an order that was cancelled meanwhile. Nothing is
+          // changed or sent to the customer, but it must not go unnoticed.
+          console.warn(`[webhook] CRITICAL: payment received for CANCELLED order ${order.id.slice(0, 8)} — refund or reinstate it manually in Stripe/admin`);
         }
       } catch (error) {
         console.error("[webhook] Failed to process checkout.session.completed:", error.message);
+        // Answering 200 here told Stripe "all done", so it never retried and a
+        // paid order could stay "awaiting_payment" forever after a transient
+        // database error. A 5xx makes Stripe retry; everything above is
+        // idempotent, so a retry is safe.
+        return res.status(500).send("Webhook processing failed");
       }
     }
   }
@@ -132,24 +173,74 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
   res.json({ received: true });
 });
 
+// Delivery reports from the SMS provider (Twilio posts here as each message
+// moves queued -> sent -> delivered/undelivered). Only accepted when the
+// X-Twilio-Signature header proves the request really came from Twilio.
+app.post("/api/sms/twilio-status", express.urlencoded({ extended: false, limit: "20kb" }), async (req, res) => {
+  const cfg = orderSms.config;
+  if (!cfg.configured || !cfg.statusCallbackUrl) return res.status(404).end();
+  if (!smsLib.validateTwilioSignature(cfg.authToken, cfg.statusCallbackUrl, req.body || {}, req.headers["x-twilio-signature"])) {
+    return res.status(403).end();
+  }
+  try {
+    await orderSms.handleStatusCallback(req.body || {});
+    res.status(204).end();
+  } catch (error) {
+    console.error("[sms] Failed to record delivery report:", smsLib.redact(error.message));
+    res.status(500).end();
+  }
+});
+
 // Normal JSON body parser (must come AFTER the webhook route)
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Uploaded brand-flyer images live in Postgres now (see flyers.js), not on
-// local disk, so they survive redeploys and Render free-plan spin-downs.
+// Brand flyers uploaded before the Cloudinary migration are still served from
+// Postgres here (read-only) until they've been migrated; once a flyer is in
+// Cloudinary this URL redirects to it. See flyers.js.
 // Served publicly here — the files themselves aren't sensitive, only
 // uploading/deleting them is.
 app.get("/uploads/flyers/:id", async (req, res) => {
   try {
     const image = await flyers.getImage(req.params.id);
     if (!image) return res.status(404).end();
+    if (image.redirectUrl) { // already in Cloudinary: old URLs keep working
+      res.set("Cache-Control", "public, max-age=3600");
+      return res.redirect(302, image.redirectUrl);
+    }
     res.set("Content-Type", image.mimeType);
     res.set("Cache-Control", "public, max-age=86400");
     res.send(image.imageData);
   } catch (error) {
     console.error("[flyers] Failed to load flyer image:", error.message);
+    res.status(500).end();
+  }
+});
+
+// OLD product/category photo URLs (/uploads/products/<id>.<ext>), from before
+// the move to Cloudinary. Read-only: images that haven't been migrated yet are
+// still served from the product_images table; once an image has been migrated
+// AND verified, its old URL redirects to the Cloudinary copy. New uploads never
+// use this route.
+app.get("/uploads/products/:file", async (req, res) => {
+  try {
+    const image = await productImages.resolveLegacy(req.params.file);
+    if (!image) return res.status(404).end();
+    if (image.redirectUrl) {
+      res.set("Cache-Control", "public, max-age=3600");
+      return res.redirect(302, image.redirectUrl);
+    }
+    res.set({
+      "Content-Type": image.mimeType,
+      "Content-Length": image.data.length,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox"
+    });
+    res.send(image.data);
+  } catch (error) {
+    console.error("[product-images] Failed to load image:", error.message);
     res.status(500).end();
   }
 });
@@ -338,6 +429,32 @@ setInterval(() => {
   }
 }, ADMIN_RATE_LIMIT_WINDOW_MS).unref();
 
+// Same idea as adminRateLimit above, for the public customer endpoints that
+// had no throttling at all (login, registration, password reset, contact).
+function makeRateLimiter({ windowMs, max }) {
+  const hits = new Map(); // ip -> { count, windowStart }
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of hits) if (now - entry.windowStart > windowMs) hits.delete(ip);
+  }, windowMs).unref();
+  return function (req, res, next) {
+    const ip = req.ip || "unknown";
+    const now = Date.now();
+    const entry = hits.get(ip);
+    if (!entry || now - entry.windowStart > windowMs) {
+      hits.set(ip, { count: 1, windowStart: now });
+      return next();
+    }
+    entry.count++;
+    if (entry.count > max) return res.status(429).json({ error: "Too many attempts — please try again later" });
+    next();
+  };
+}
+const loginRateLimit = makeRateLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+const registerRateLimit = makeRateLimiter({ windowMs: 60 * 60 * 1000, max: 15 });
+const accountEmailRateLimit = makeRateLimiter({ windowMs: 15 * 60 * 1000, max: 15 }); // forgot/reset/verify/resend
+const contactRateLimit = makeRateLimiter({ windowMs: 60 * 60 * 1000, max: 8 });
+
 const PAYMENT_METHOD_LABELS = { cod: "Cash on Delivery", card: "Online Payment (Card)", points: "Points Payment" };
 const fmtGBP = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -393,7 +510,7 @@ async function notifyNewOrder(order) {
       html: `
         <p><strong>New order received!</strong></p>
         <p>
-          Customer: ${order.customerName}<br>
+          Customer: ${email.escapeHtml(order.customerName)}<br>
           Order ID: ${shortId}<br>
           Total: ${fmtGBP(order.total)}<br>
           Payment method: ${paymentLabel}<br>
@@ -701,13 +818,41 @@ function validateCatalogue(data) {
   if (!data || typeof data !== "object") return "Payload must be an object";
   if (!Array.isArray(data.categories)) return "Missing categories array";
   if (!Array.isArray(data.products)) return "Missing products array";
-  for (const c of data.categories) if (!c.id || !c.name) return "Every category needs an id and a name";
+  // image is a path/URL string that the storefront puts straight into an <img src="…">.
+  const badImage = v => v !== undefined && v !== null && v !== "" &&
+    (typeof v !== "string" || v.length > 500 || /["<>`]/.test(v) || /^\s*(javascript|data|vbscript):/i.test(v));
+  for (const c of data.categories) {
+    if (!c.id || !c.name) return "Every category needs an id and a name";
+    if (badImage(c.image)) return `Invalid image on category "${c.name}"`;
+  }
   for (const p of data.products) {
     if (!p.id || !p.name || !p.cat) return "Every product needs an id, name, and category";
+    if (badImage(p.image)) return `Invalid image on "${p.name}"`;
     if (typeof p.price !== "number" || p.price < 0) return `Invalid price on "${p.name}"`;
   }
   return null;
 }
+
+// Admin: upload one product/category photo from the device. Returns the URL to
+// save in the product's existing "image" field. Nothing is ever deleted here:
+// replacing or removing a photo in the dashboard only changes the URL on the
+// product, and the previous image stays stored.
+const productImageRateLimit = makeRateLimiter({ windowMs: 10 * 60 * 1000, max: 60 });
+app.post("/api/admin/product-images", requireAdmin, productImageRateLimit, (req, res) => {
+  productImages.upload(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: productImages.uploadErrorMessage(err) });
+    try {
+      // ?kind=category for category photos; everything else is a product photo.
+      const kind = req.query.kind === "category" ? "category" : "product";
+      const result = await productImages.save(req.file, kind);
+      if (result.error) return res.status(result.status || 400).json({ error: result.error });
+      res.status(201).json({ url: result.url });
+    } catch (e) {
+      console.error("[product-images] Failed to save upload:", e.message);
+      res.status(500).json({ error: "Could not save the image — please try again" });
+    }
+  });
+});
 
 app.put("/api/products", requireAdmin, async (req, res) => {
   const err = validateCatalogue(req.body);
@@ -903,13 +1048,16 @@ app.post("/api/admin/complete-setup", adminRateLimit, async (req, res) => {
 
 // ==================== ACCOUNTS ====================
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", registerRateLimit, async (req, res) => {
   const { name, email, password, referralCode } = req.body || {};
 
-  if (!name || !email || !password) {
+  if (!name || !email || !password || typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
     return res.status(400).json({
       error: "Name, email, and password are required"
     });
+  }
+  if (name.length > 120 || email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return res.status(400).json({ error: "Enter a valid name and email address" });
   }
 
   if (password.length < 8) {
@@ -963,6 +1111,7 @@ app.post("/api/auth/register", async (req, res) => {
     res.cookie("session", token, {
       httpOnly: true,
       sameSite: "lax",
+      secure: IS_PRODUCTION,
       maxAge: 30 * 24 * 3600 * 1000
     });
 
@@ -984,10 +1133,14 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 
-app.post("/api/auth/login", async (req, res) => {
+// Used to spend the same bcrypt time when an email has no account, so login
+// response time doesn't reveal which emails are registered.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("not-a-real-password", 10);
+
+app.post("/api/auth/login", loginRateLimit, async (req, res) => {
   const { email, password } = req.body || {};
 
-  if (!email || !password) {
+  if (!email || !password || typeof email !== "string" || typeof password !== "string") {
     return res.status(400).json({
       error: "Email and password are required"
     });
@@ -1003,6 +1156,7 @@ app.post("/api/auth/login", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
       return res.status(401).json({
         error: "Incorrect email or password"
       });
@@ -1028,6 +1182,7 @@ app.post("/api/auth/login", async (req, res) => {
     res.cookie("session", token, {
       httpOnly: true,
       sameSite: "lax",
+      secure: IS_PRODUCTION,
       maxAge: 30 * 24 * 3600 * 1000
     });
 
@@ -1074,7 +1229,7 @@ function hashResetToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-app.post("/api/auth/forgot-password", async (req, res) => {
+app.post("/api/auth/forgot-password", accountEmailRateLimit, async (req, res) => {
   const { email: rawEmail } = req.body || {};
   const email_ = typeof rawEmail === "string" ? rawEmail.trim() : "";
   const genericMessage = "If an account exists for this email, a password reset link has been sent.";
@@ -1125,12 +1280,14 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   // hand back the link directly so the flow can still be tested without an
   // inbox. Never happens once SMTP_* is set, and never leaks whether the
   // account existed (this branch already returned early above if it didn't).
-  if (!email.isConfigured) response.devResetUrl = resetUrl;
+  // Never in production: if SMTP ever went missing there, this would hand a
+  // working reset link for ANY account to whoever asked.
+  if (!email.isConfigured && !IS_PRODUCTION) response.devResetUrl = resetUrl;
 
   res.json(response);
 });
 
-app.post("/api/auth/reset-password", async (req, res) => {
+app.post("/api/auth/reset-password", accountEmailRateLimit, async (req, res) => {
   const { token, password, confirmPassword } = req.body || {};
   if (!token || typeof token !== "string") {
     return res.status(400).json({ error: "This reset link is invalid or has expired" });
@@ -1174,6 +1331,9 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     const newPasswordHash = await bcrypt.hash(password, 10);
     await db.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [newPasswordHash, user.id]);
+    // Sign out every existing session — the usual reason to reset a password
+    // is that someone else may have it. Best-effort: never blocks the reset.
+    await db.query(`DELETE FROM sessions WHERE user_id = $1`, [user.id]).catch(e => console.error("[auth] Could not clear sessions after reset:", e.message));
 
     // Single-use: mark this token (and any other still-unused ones for the
     // same user) used immediately so it can never be replayed.
@@ -1221,7 +1381,7 @@ async function sendVerificationTokenToUser(user) {
   await email.sendVerificationEmail(user.email, user.name, verifyUrl);
 }
 
-app.post("/api/auth/verify-email", async (req, res) => {
+app.post("/api/auth/verify-email", accountEmailRateLimit, async (req, res) => {
   const { token } = req.body || {};
   if (!token || typeof token !== "string") {
     return res.status(400).json({ error: "This verification link is invalid or has expired" });
@@ -1255,7 +1415,7 @@ app.post("/api/auth/verify-email", async (req, res) => {
   }
 });
 
-app.post("/api/auth/resend-verification", async (req, res) => {
+app.post("/api/auth/resend-verification", accountEmailRateLimit, async (req, res) => {
   const { email: rawEmail } = req.body || {};
   const email_ = typeof rawEmail === "string" ? rawEmail.trim() : "";
   // Same generic response regardless of what's true, to avoid this endpoint
@@ -1348,9 +1508,19 @@ app.post("/api/orders", requireAuth, async (req, res) => {
   const { items, paymentMethod, address, orderNote, pointsToUse, phone, platform } = req.body || {};
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "Your basket is empty" });
   if (!PAYMENT_METHODS.has(paymentMethod)) return res.status(400).json({ error: "Choose a payment method" });
-  if (!address || !address.line1 || !address.city || !address.postcode) {
+  // Only known text fields are kept, trimmed and length-limited — the whole
+  // client-supplied object used to be stored as-is.
+  const ADDRESS_FIELDS = { line1: 200, line2: 200, city: 100, county: 100, postcode: 20, country: 100 };
+  const cleanAddress = {};
+  if (address && typeof address === "object") {
+    for (const [field, maxLen] of Object.entries(ADDRESS_FIELDS)) {
+      if (typeof address[field] === "string" && address[field].trim()) cleanAddress[field] = address[field].trim().slice(0, maxLen);
+    }
+  }
+  if (!cleanAddress.line1 || !cleanAddress.city || !cleanAddress.postcode) {
     return res.status(400).json({ error: "A delivery address is required" });
   }
+  if (items.length > 100) return res.status(400).json({ error: "Too many items in one order" });
   const cleanPhone = typeof phone === "string" ? phone.trim() : "";
   if (!isValidPhone(cleanPhone)) {
     return res.status(400).json({ error: "A valid phone number is required" });
@@ -1372,7 +1542,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
   for (const item of items) {
     const p = products.find(x => x.id === item.productId);
     if (!p) return res.status(400).json({ error: `Product ${item.productId} no longer exists` });
-    const qty = Math.max(1, parseInt(item.qty, 10) || 1);
+    const qty = Math.min(99, Math.max(1, parseInt(item.qty, 10) || 1));
 
     // Per-item replacement preference and special instruction, captured in
     // the product-options step before the item ever reaches the basket.
@@ -1466,7 +1636,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     amountDue,
     pointsDeducted: false,
     paymentMethod: effectivePaymentMethod,
-    address,
+    address: cleanAddress,
     orderNote: cleanOrderNote,
     status: confirmedNow ? "pending" : "awaiting_payment",
     createdAt: new Date().toISOString()
@@ -1495,6 +1665,15 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     await insertOrder(order);
   } catch (error) {
     console.error("[orders] Failed to save order:", error.message);
+    // Points were already deducted above for COD/points orders — give them
+    // back, otherwise a failed save silently costs the customer their points.
+    if (order.pointsDeducted) {
+      await rewards.awardPoints({
+        userId: req.user.id, type: "payment_reversal", points: pointsUsed,
+        reason: "Refund: order could not be saved", orderId: null, refId: `payment-reversal:${order.id}`,
+        allowNegativeBalance: true
+      }).catch(e => console.error("[rewards] CRITICAL: failed to refund points after failed order save:", e.message));
+    }
     return res.status(500).json({ error: "Could not save your order — please try again" });
   }
 
@@ -1508,6 +1687,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
   // right away (including card orders still awaiting payment, so the
   // customer has a record their order was received).
   sendOrderPlacedEmailOnce(order);
+  orderSms.notify(order, "order_placed"); // independent of the email above; never throws
 
   if (confirmedNow) {
     notifyNewOrder(order);
@@ -1609,6 +1789,11 @@ app.post("/api/orders/:id/confirm-card-payment", requireAuth, async (req, res) =
     return res.status(400).json({ error: "Payment hasn't completed yet" });
   }
 
+  if (order.status === "cancelled") {
+    console.warn(`[orders] CRITICAL: payment verified for CANCELLED order ${order.id.slice(0, 8)} — refund or reinstate it manually in Stripe/admin`);
+    return res.status(409).json({ error: "This order was cancelled. Please contact our support team about your payment." });
+  }
+
   if (order.status === "awaiting_payment") {
     order.status = "pending";
   }
@@ -1648,6 +1833,7 @@ app.post("/api/orders/:id/confirm-card-payment", requireAuth, async (req, res) =
 
   notifyNewOrder(order);
   sendPaymentConfirmedEmailOnce(order);
+  orderSms.notify(order, "payment_confirmed"); // Stripe session verified as paid above
   res.json({ order });
 });
 
@@ -1702,12 +1888,39 @@ app.put("/api/orders/:id/status", requireAdmin, async (req, res) => {
     // so re-saving the same value in the dropdown never resends it.
     if (status !== previousStatus) {
       sendOrderStatusEmail(order);
+      // SMS for the same genuine status change (processing / shipped /
+      // delivered / cancelled). Deduped per order+event, never throws.
+      const smsEvent = smsLib.STATUS_TO_EVENT[status];
+      if (smsEvent) orderSms.notify(order, smsEvent);
     }
 
     res.json({ order });
   } catch (error) {
     console.error("[orders] Failed to update order status:", error.message);
     res.status(500).json({ error: "Could not update order status" });
+  }
+});
+
+// ==================== ADMIN: CUSTOMER SMS ====================
+// Read-only view of what was attempted/delivered, plus a safe retry. Provider
+// credentials are never returned — only whether SMS is configured.
+app.get("/api/admin/sms-notifications", requireAdmin, async (req, res) => {
+  try {
+    res.json({ ...orderSms.info(), notifications: await orderSms.list() });
+  } catch (error) {
+    console.error("[sms] Failed to load SMS notifications:", smsLib.redact(error.message));
+    res.status(500).json({ error: "Could not load SMS notifications" });
+  }
+});
+
+app.post("/api/admin/sms-notifications/:id/retry", requireAdmin, async (req, res) => {
+  try {
+    const result = await orderSms.retry(req.params.id);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    res.json({ notification: result.notification });
+  } catch (error) {
+    console.error("[sms] Retry failed:", smsLib.redact(error.message));
+    res.status(500).json({ error: "Could not retry this SMS" });
   }
 });
 
@@ -1993,7 +2206,11 @@ app.post("/api/admin/flyers", requireAdmin, (req, res) => {
     try {
       const created = await flyers.addFlyers(req.files);
       res.status(201).json({ flyers: created });
-    } catch (e) { console.error("[flyers] Failed to save uploaded flyers:", e.message); res.status(500).json({ error: "Could not save uploaded flyers" }); }
+    } catch (e) {
+      console.error("[flyers] Failed to save uploaded flyers:", e.message);
+      if (e.status) return res.status(e.status).json({ error: e.publicMessage || "Could not store the flyer images" });
+      res.status(500).json({ error: "Could not save uploaded flyers" });
+    }
   });
 });
 
@@ -2012,11 +2229,16 @@ app.put("/api/admin/flyers/:id/replace", requireAdmin, (req, res) => {
       const result = await flyers.replaceFlyer(req.params.id, req.file);
       if (result.error) return res.status(404).json({ error: result.error });
       res.json(result);
-    } catch (e) { console.error("[flyers] Failed to replace flyer:", e.message); res.status(500).json({ error: "Could not replace flyer" }); }
+    } catch (e) {
+      console.error("[flyers] Failed to replace flyer:", e.message);
+      if (e.status) return res.status(e.status).json({ error: e.publicMessage || "Could not store the flyer image" });
+      res.status(500).json({ error: "Could not replace flyer" });
+    }
   });
 });
 
-// Admin: delete a flyer (removes both the metadata row and the image bytes).
+// Admin: delete a flyer (removes the flyer's database row). Its Cloudinary
+// image, if any, is intentionally NOT deleted.
 app.delete("/api/admin/flyers/:id", requireAdmin, async (req, res) => {
   try {
     const result = await flyers.deleteFlyer(req.params.id);
@@ -2052,7 +2274,7 @@ function flyerUploadErrorMessage(err) {
 // Stored in Postgres (contact_messages table) rather than JSON — Render's
 // free plan has no persistent disk, so a JSON file here would lose every
 // submission on the next redeploy or spin-down.
-app.post("/api/contact", async (req, res) => {
+app.post("/api/contact", contactRateLimit, async (req, res) => {
   const { name, email: fromEmail, subject, message } = req.body || {};
   const clean = {
     name: typeof name === "string" ? name.trim().slice(0, 120) : "",
@@ -2083,7 +2305,7 @@ app.post("/api/contact", async (req, res) => {
       to: CONTACT_INBOX_EMAIL,
       subject: `[MyShopSwift contact] ${clean.subject}`,
       text: `From: ${clean.name} <${clean.email}>\n\n${clean.message}`,
-      html: `<p><strong>From:</strong> ${clean.name} &lt;${clean.email}&gt;</p><p>${clean.message.replace(/\n/g, "<br>")}</p>`
+      html: `<p><strong>From:</strong> ${email.escapeHtml(clean.name)} &lt;${email.escapeHtml(clean.email)}&gt;</p><p>${email.escapeHtml(clean.message).replace(/\n/g, "<br>")}</p>`
     }).catch(() => { /* message is already saved either way — admin can still see it */ });
   }
 

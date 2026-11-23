@@ -99,7 +99,7 @@
     var thumb = el("div", { "class": "msa-thumb" });
     if (p.image){
       var img = el("img", { alt: p.name, loading: "lazy" });
-      img.src = p.image;
+      img.src = window.cdnImg ? window.cdnImg(p.image, 160) : p.image;
       img.addEventListener("error", function(){ img.remove(); });
       thumb.appendChild(img);
     }

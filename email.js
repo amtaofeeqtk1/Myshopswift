@@ -62,7 +62,7 @@ function passwordResetEmail(name, resetUrl) {
     subject: "Reset your MyShopSwift password",
     text: `Hi ${safeName},\n\nWe received a request to reset your MyShopSwift password. This link expires in 30 minutes and can only be used once:\n\n${resetUrl}\n\nIf you didn't request this, you can safely ignore this email — your password won't change.\n\n— MyShopSwift`,
     html: `
-      <p>Hi ${safeName},</p>
+      <p>Hi ${escapeHtml(safeName)},</p>
       <p>We received a request to reset your MyShopSwift password. This link expires in 30 minutes and can only be used once:</p>
       <p><a href="${resetUrl}" style="background:#0F2A6B;color:#F7F9FC;padding:12px 20px;text-decoration:none;display:inline-block;">Reset your password</a></p>
       <p style="font-size:13px;color:#666;">Or copy this link: ${resetUrl}</p>
@@ -171,7 +171,7 @@ function verificationEmail(name, verifyUrl) {
     subject: "Verify your email — MyShopSwift",
     text: `Hi ${safeName},\n\nWelcome to MyShopSwift! Please verify your email address by clicking the link below. This link expires in 24 hours and can only be used once:\n\n${verifyUrl}\n\nIf you didn't create this account, you can safely ignore this email.\n\n— MyShopSwift`,
     html: `
-      <p>Hi ${safeName},</p>
+      <p>Hi ${escapeHtml(safeName)},</p>
       <p>Welcome to MyShopSwift! Please verify your email address to finish setting up your account. This link expires in 24 hours and can only be used once:</p>
       <p><a href="${verifyUrl}" style="background:#0F2A6B;color:#F7F9FC;padding:12px 20px;text-decoration:none;display:inline-block;">Verify your email</a></p>
       <p style="font-size:13px;color:#666;">Or copy this link: ${verifyUrl}</p>
@@ -230,6 +230,7 @@ async function sendOrderStatusEmail(order) {
 
 module.exports = {
   isConfigured,
+  escapeHtml,
   sendMail,
   sendPasswordResetEmail,
   sendVerificationEmail,

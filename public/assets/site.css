@@ -41,7 +41,7 @@ header.site{background:var(--paper);border-bottom:1px solid var(--line);position
 .header-inner{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;gap:24px;flex-wrap:wrap;}
 .logo{display:flex;align-items:center;gap:10px;}
 .logo img{height:52px;width:auto;display:block;}
-.logo .tagline{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--rust);font-family:'IBM Plex Mono',monospace;line-height:1.5;}
+.logo .tagline{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--rust);font-family:arial;font-weight: bolder; line-height:1.5;}
 .site-nav{display:flex;gap:20px;flex-wrap:wrap;}
 .site-nav a{font-size:13.5px;font-weight:500;padding:6px 0;border-bottom:2px solid transparent;}
 .site-nav a:hover, .site-nav a.active{border-color:var(--rust);color:var(--rust);}

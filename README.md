@@ -39,8 +39,9 @@ cp .env.example .env
 ```
 
 Edit `.env`:
-- `ADMIN_KEY` — a password only you know; the admin panel needs this
-  to publish catalogue changes or manage orders.
+- `ADMIN_EMAIL` — your admin email (new-order alerts go here). The admin
+  panel signs in with an email and password; see `.env.example`. The old
+  `ADMIN_KEY` is no longer used.
 - `STRIPE_SECRET_KEY` — optional. Leave blank and card payment is
   disabled but Cash on Delivery still works fully. Add a real Stripe
   secret key to enable "Pay by card" at checkout (Stripe Checkout
@@ -68,7 +69,7 @@ npm start
 
 ## What the admin panel does
 
-Enter your `ADMIN_KEY` in the header field, then:
+Sign in to the admin panel, then:
 - **Products / Categories** — add, edit, delete; **Publish live**
   pushes changes to the storefront immediately
 - **Orders** — view every order with customer, items, total, delivery
@@ -80,8 +81,8 @@ Enter your `ADMIN_KEY` in the header field, then:
 
 ## Security notes (read before going live)
 
-- Change `ADMIN_KEY` from the default — anyone with it can edit your
-  catalogue and see every order and customer.
+- Use a strong admin password — anyone who can sign in to the admin
+  panel can edit your catalogue and see every order and customer.
 - Passwords are hashed with bcrypt; they're never stored or sent in
   plain text.
 - Sessions live in server memory and reset if the server restarts —
@@ -129,8 +130,7 @@ won't get committed.)
    and connect the GitHub repo — Render will read `render.yaml` in
    this folder and set up the service and a persistent disk for `data/`
    automatically.
-2. In the service's **Environment** tab, set `ADMIN_KEY` to a real
-   password, and `PUBLIC_URL` to the `.onrender.com` URL Render gives
+2. In the service's **Environment** tab, set `ADMIN_EMAIL`, and `PUBLIC_URL` to the `.onrender.com` URL Render gives
    you (or your custom domain once attached). Add `STRIPE_SECRET_KEY`
    if you want card payments.
 3. Deploy. Render builds with `npm install` and runs `npm start`
@@ -146,7 +146,7 @@ your catalogue and orders survive redeploys.
 1. [railway.app](https://railway.app) → New Project → Deploy from
    GitHub repo → pick this repo. Railway detects Node automatically
    (`Procfile` / `package.json` `start` script).
-2. In **Variables**, add `ADMIN_KEY`, `PUBLIC_URL` (the Railway-issued
+2. In **Variables**, add `ADMIN_EMAIL`, `PUBLIC_URL` (the Railway-issued
    domain, or your own once attached), and `STRIPE_SECRET_KEY` if
    using card payments.
 3. Add a **Volume** mounted at `/app/data` (or wherever your service
@@ -185,22 +185,19 @@ everything built here instead of duplicating it.
 A rotating "Featured Brands" carousel on the storefront, fed by images the
 admin uploads — no product association needed. Logic lives in `flyers.js`.
 
-- **Storage** — a single `flyers` table in PostgreSQL, metadata and the raw
-  image bytes together (`image_data` is `bytea`). Uploads go through
-  `multer.memoryStorage()`, so a file never touches the local disk at all —
-  it goes straight from the upload into the database. This is deliberate:
-  Render's free plan has no persistent disk, and even a paid plan's disk is
-  one more thing to provision — Postgres was already required for
-  everything else, so it's the simplest single place for this too. Images
-  are served publicly at `/uploads/flyers/<id>` via a dedicated route in
-  `server.js` that streams the bytes straight out of Postgres with the
-  right `Content-Type` — the images themselves aren't sensitive, only
-  uploading/deleting them is.
+- **Storage** — new and replacement flyer images are uploaded to Cloudinary
+  (see "Image storage: Cloudinary" below); the `flyers` table keeps the
+  order/name and the flyer's Cloudinary URL (`image_url`). Flyers uploaded
+  before the move still have their bytes in `flyers.image_data` and keep being
+  served at `/uploads/flyers/<id>` until `migrate-images-to-cloudinary.js` has
+  migrated them (after which that URL redirects to Cloudinary). `image_data`
+  is never emptied or deleted by the app.
 - **Admin (`Admin → Flyers`)** — upload one or more images in a single
   request (drag no, but multi-select works — `<input type="file" multiple>`
   posted as `multipart/form-data`), replace or delete any flyer, and
-  reorder them with ↑/↓ controls. All of this requires the same admin key
-  (`x-admin-key` header) as the rest of the admin panel.
+  reorder them with ↑/↓ controls, with an upload progress bar and clear
+  success/error messages. Requires an admin session, like the rest of the
+  admin panel. Deleting a flyer removes the flyer, never its Cloudinary image.
 - **Validation** — JPEG/PNG/WEBP/GIF only, 5MB max per image, up to 20
   images per upload batch, all enforced server-side via `multer` (the one
   new dependency this feature adds).
@@ -339,3 +336,170 @@ A chat widget on the storefront that helps customers find products from the real
 - The OpenAI key stays on the server. Set `OPENAI_API_KEY` (required), plus optional `OPENAI_MODEL`, `AI_RATE_LIMIT_MAX`, `AI_DAILY_LIMIT` — see `.env.example`. With no key the widget is hidden and the rest of the site is unaffected.
 - The model can only call four server-side tools: `search_products`, `get_product_details`, `list_categories`, `add_to_cart`. Prices, names and images always come from the catalogue, never from the model. `add_to_cart` validates product, quantity and brand, then the storefront adds the line to its existing basket through `window.MyShopSwiftCart` (defined in `boot()` in `index.html`). The assistant cannot place orders or take payment.
 - Run the tests (no dependencies needed): `node --test tests/*.test.js`
+
+## WhatsApp order enquiries and SMS order notifications
+
+### WhatsApp (customer support shortcut — not automatic tracking)
+A "Message us on WhatsApp" button opens a chat with the official number
+(07739 320205) with the message "Hello MyShopSwift, I would like to check the
+status of my order. My order reference is #xxxxxxxx." already typed in. It
+appears on the order-confirmation dialog, in the account order history, and on
+the Track Order page. The reference is the same 8-character reference shown in
+emails and on Track Order, and it is the only thing put in the link — no name,
+address, phone, email or total. The link is `https://wa.me/447739320205?text=…`
+(WhatsApp's universal link: the app on Android/iOS, WhatsApp Web/Desktop on a
+computer). The number lives in one place: `public/assets/whatsapp.js`. Admin
+orders now show the same reference under the date, so staff can find an order
+a customer quotes. Replies are sent by your team by hand; there is no
+automatic WhatsApp status messaging.
+
+### SMS notifications (Twilio)
+Customers are texted at their checkout phone number, in addition to (and
+independently of) the existing emails:
+
+| Event | When |
+|---|---|
+| Order received | order created (every payment method, same moment as the email) |
+| Payment confirmed | Stripe-verified payment only (signed webhook, or the return page after the server re-checks the Stripe session) |
+| Processing / Dispatched / Delivered / Cancelled | admin changes the order status to that value |
+
+There is no "out for delivery" order status in this project, so no SMS exists
+for it. Each (order, event) is sent at most once, even if Stripe retries the
+webhook, the customer refreshes the return page, or an admin re-saves a status
+(`sms_notifications.dedupe_key` is unique). An SMS failure is logged and shown
+in the admin dashboard but never affects the order, payment or status change.
+If SMS is not configured, nothing is attempted or recorded.
+
+**Phone numbers.** UK mobiles in any normal format (07…, +44…, 0044…) are
+converted to +44…. Other countries need a +/00 prefix. UK landlines and
+unusable numbers are recorded as "not sent" and never retried.
+
+**Admin dashboard (Orders tab).** Under each order's status you will see each
+SMS (attempted / queued / sent / delivered / not delivered / failed, with the
+provider error code) and a **Retry** button on failed or undelivered ones.
+Retry is atomic: it only works on failed/undelivered messages, cannot be
+double-clicked into two sends, and refuses to send a stale message (e.g.
+"dispatched" after the order is already delivered). Configuration is
+server-side only (environment variables); the dashboard shows whether SMS is
+configured but never any key.
+
+**Required environment variables** (all optional — SMS stays off without them):
+`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and one sender: `TWILIO_FROM`
+(alphanumeric ID such as `MyShopSwift`, or an E.164 Twilio number) or
+`TWILIO_MESSAGING_SERVICE_SID`. Optional: `SMS_ENABLED=false` (kill switch).
+Also set `NODE_ENV=production` and a public `https://` `PUBLIC_URL` on the
+live server (delivery reports need it).
+
+**Setup.**
+1. Create a Twilio account, **upgrade it from trial and add credit** (trial
+   accounts can only text verified numbers).
+2. Copy Account SID and Auth Token from the Twilio Console into your host's
+   environment variables (Render dashboard), plus `TWILIO_FROM`.
+3. UK alphanumeric sender IDs work without pre-registration on Twilio, but
+   customers cannot reply to them, and a "protected" brand name needs an
+   approval letter (see Twilio's UK SMS guidelines). Use a Twilio number
+   instead if you want replies.
+4. Database: the server creates the `sms_notifications` table itself at
+   startup. You can also run `add-sms-notifications.sql` against Neon first
+   (idempotent, additive only).
+5. Redeploy, then run the staging checklist below.
+
+**Staging checklist (needs real services, not covered by automated tests).**
+Place a COD order with your own mobile and confirm the text arrives; pay a
+Stripe test-mode card order and confirm one "received" and one "payment" text;
+change the order to Processing, Dispatched, Delivered and confirm each arrives
+once and shows "delivered" in the admin (proves Twilio callbacks reach
+`/api/sms/twilio-status`); try an invalid number and confirm the order still
+succeeds.
+
+### Tests
+`npm test` runs the unit tests and `tests/e2e-sms-flow.js`, which starts the
+real server against an in-memory fake database, fake Stripe and fake Twilio.
+These prove the application logic; they do not prove real PostgreSQL, Twilio or
+Stripe behaviour.
+
+## Image storage: Cloudinary (product photos, category photos, brand flyers)
+
+Uploaded images are stored in **Cloudinary**; PostgreSQL only keeps references
+and metadata. Nothing uploaded from now on puts image bytes in the database.
+
+**How uploading works.** In the admin, the Photo field (products and categories)
+and the Flyers tab let you pick images from your phone's photos or your
+computer. Photos preview straight away, show an upload progress bar, and can be
+replaced or removed before saving; flyers show progress and clear
+success/error messages. The browser shrinks big phone photos first (longest
+side 1600px) and checks type/size; the **server** then re-checks the file's real
+type from its bytes (JPG/PNG/WebP — plus GIF for flyers — up to 5MB), requires
+an admin session, and uploads to Cloudinary with a signed request. The
+Cloudinary API secret exists only in the server's environment; the browser
+never talks to Cloudinary and never sees a key.
+
+**Where things live.**
+- Cloudinary: the images, under `myshopswift/products|categories|flyers/<random id>` (never overwritten).
+- `products.image` / `categories.image`: the image's `https://res.cloudinary.com/...` URL (same column as before).
+- `flyers.image_url` + `flyers.cloudinary_public_id` (two new nullable columns): the flyer's Cloudinary URL.
+- `image_assets` (new table): one row per uploaded/migrated image — Cloudinary public id, URL, format, size, dimensions, original file name.
+- `image_migrations` (new table): progress/audit log of the migration below.
+
+**Delivery.** Pages ask Cloudinary for an appropriately sized version
+(`f_auto,q_auto,c_limit,w_N` — best format for the visitor's browser, automatic
+quality, width capped per place it's shown: cards 640, cart thumbnails 160,
+product options 800, flyers 1400, admin thumbnails 96) via `public/assets/cdn-image.js`.
+The database keeps the plain URL; the page builds the optimised link when it
+draws the image, so there are no extra database queries.
+
+**Images are never deleted automatically.** Replacing a photo only changes the
+URL on the product/flyer. Removing a photo only clears that field (the product
+stays). Deleting a flyer removes its row, not its Cloudinary image. The app has
+no Cloudinary delete/rename call at all; clean-up, if ever wanted, is a manual
+job in the Cloudinary console.
+
+**Environment variables** (Render dashboard; also in `.env.example`):
+`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+(optional `CLOUDINARY_FOLDER`, default `myshopswift` — use another value for a staging site).
+**Set them before deploying this version**: until they are set, new photo and
+flyer uploads are refused with a clear message (existing images keep
+displaying, and the rest of the shop is unaffected).
+
+### Migrating the existing images (PostgreSQL → Cloudinary)
+
+Existing product/category photos live in the `product_images` table (served from
+`/uploads/products/<id>.<ext>`) and existing flyers have their bytes in
+`flyers.image_data`. `migrate-images-to-cloudinary.js` copies them all to
+Cloudinary. It **never deletes, truncates or empties anything**; the old data
+stays as the backup. It does not run automatically.
+
+Run it from your own computer (or Render's Shell) with `DATABASE_URL` and the three
+`CLOUDINARY_*` variables set, in this order:
+
+1. **Take a database snapshot/branch first** (Neon: create a branch or note the restore point) — the last step edits product/category rows.
+2. `node migrate-images-to-cloudinary.js --dry-run` — reads only; lists what would be migrated.
+3. `node migrate-images-to-cloudinary.js --backup=./image-backup` — saves every original image + a SHA-256 manifest to a local folder. Keep it.
+4. `node migrate-images-to-cloudinary.js --limit=3` — try a small batch, then open a few of the printed Cloudinary URLs.
+5. `node migrate-images-to-cloudinary.js` — migrates the rest. Each image is uploaded under a fixed id (`myshopswift/legacy/...`, never overwritten), then its Cloudinary URL is fetched to prove it loads; only then is it recorded as migrated in `image_migrations`. **If anything fails, just run it again**: finished images are skipped, failed ones retried, and nothing is uploaded twice. Exit code is 1 if any image failed.
+6. Check progress any time: `SELECT status, COUNT(*) FROM image_migrations GROUP BY status;`
+7. Only when everything shows `migrated`: `node migrate-images-to-cloudinary.js --apply-references` — points products, categories and flyers at the new URLs (only for images that migrated *and* verified; relative `assets/...` paths and anything else are left alone).
+
+From the moment an image is migrated and verified, its old `/uploads/...` URL
+redirects to Cloudinary, so cached pages or old emails keep working. Keep
+`product_images` and `flyers.image_data` until you've used the shop for a while
+and are happy; retiring them is a separate manual decision (there is no script
+that drops them).
+
+### Staging checklist (needs your real Cloudinary account and database)
+Upload a product photo from a real Android phone and an iPhone and from a
+computer; Publish live; check it shows on the storefront; replace and remove a
+photo; upload a category photo; upload, replace and reorder a flyer; confirm each
+appears in the Cloudinary console under `myshopswift/`; run the migration steps
+above on a copy/staging database first.
+
+### Tests
+`npm test` runs unit tests (Cloudinary client incl. Cloudinary's published
+signature example, migration logic), SMS checks, `tests/e2e-product-images.js`
+(real server against a fake database and a signature-verifying fake Cloudinary,
+with and without credentials configured) and `tests/e2e-migration-cli.js` (runs
+the real migration script as a separate process through dry run, backup,
+partial failure, retry, apply-references and re-run). `tests/browser/product-upload.py`
+drives a real Chromium (desktop + phone/tablet emulation; Python + Playwright;
+fixtures via `tests/browser/make-fixtures.py`) and is run by hand. These prove
+the application logic — not real Cloudinary, real PostgreSQL SQL, or real phones.
