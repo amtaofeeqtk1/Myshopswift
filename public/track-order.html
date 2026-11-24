@@ -124,7 +124,7 @@
 (function(){
   const STATUS_LABELS = {
     pending: "Pending", awaiting_payment: "Awaiting payment", processing: "Processing",
-    shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled"
+    shipped: "On the way to you", delivered: "Delivered", cancelled: "Cancelled"
   };
   const fmt = n => "£" + Number(n).toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
   let myOrders = [];

@@ -94,7 +94,7 @@ const STATUS_INFO = {
   pending: { label: "Pending", next: "We're getting your order ready." },
   awaiting_payment: { label: "Awaiting payment", next: "This order is held until your card payment completes." },
   processing: { label: "Processing", next: "Your order is being packed." },
-  shipped: { label: "Shipped", next: "Your order is on its way." },
+  shipped: { label: "On the way to you", next: "Your order is on its way." },
   delivered: { label: "Delivered", next: "Enjoy! Let us know if anything was missing or damaged." },
   cancelled: { label: "Cancelled", next: "This order has been cancelled. Contact us if you have any questions." }
 };

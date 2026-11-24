@@ -73,7 +73,7 @@ Sign in to the admin panel, then:
   pushes changes to the storefront immediately
 - **Orders** — view every order with customer, items, total, delivery
   address, and payment method; change status (pending → processing →
-  shipped → delivered, or cancelled) — updates live as soon as you
+  On the way to you → delivered, or cancelled) — updates live as soon as you
   change the dropdown
 - **Customers** — see registered customers with order count and total
   spend
