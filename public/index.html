@@ -1748,11 +1748,15 @@
       // /api/orders/mine already returns newest first — reversing it here put
       // the oldest orders at the top.
       box.innerHTML = orders.map(o => `
-        <div class="order-row" style="flex-wrap:wrap;gap:4px 10px;">
+        <div class="order-row" data-order-id="${escapeHtml(o.id)}" style="flex-wrap:wrap;gap:4px 10px;${new URLSearchParams(window.location.search).get("order") === o.id ? "border:2px solid var(--rust);background:#fff8f1;" : ""}">
           <span>${new Date(o.createdAt).toLocaleDateString("en-GB")} — ${fmt(o.total)} — ${window.MSSWhatsApp.ref(o.id)}</span>
           <span class="status">${o.status.replace("_"," ")}</span>
           <a href="${window.MSSWhatsApp.link(o.id)}" target="_blank" rel="noopener noreferrer" style="flex-basis:100%;font-size:11.5px;color:var(--indigo);text-decoration:underline;">Message us on WhatsApp about this order</a>
         </div>`).join("");
+      const targetOrder = new URLSearchParams(window.location.search).get("order");
+      if(targetOrder){
+        document.querySelector(`[data-order-id="${CSS.escape(targetOrder)}"]`)?.scrollIntoView({ block:"center", behavior:"smooth" });
+      }
     }catch(e){ box.innerHTML = `<div class="no-orders">Couldn't load your orders.</div>`; }
   }
 
@@ -1770,6 +1774,7 @@
       if(!res.ok){ errEl.textContent = data.error || "Could not sign in"; return; }
       currentUser = data.user;
       refreshAccountUI();
+      loadMyOrders();
       showToast(`Welcome back, ${currentUser.name.split(" ")[0]}`);
     }catch(e){ errEl.textContent = "Network error — try again"; }
   });
@@ -2011,6 +2016,9 @@
   // loaded. Must run inside boot() — refreshAccountUI() and the DOM refs
   // it uses (loggedOutView, loggedInView, etc.) are only in scope here.
   refreshAccountUI();
+  if(new URLSearchParams(window.location.search).get("account") === "orders"){
+    openAccountModal();
+  }
 
   // If we've just come back from a Stripe Checkout redirect, verify the
   // payment server-side (points aren't deducted and the order isn't marked

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "migrate:images": "node migrate-images-to-cloudinary.js",
-    "test": "node --test tests/ai-assistant.test.js tests/sms.test.js tests/order-sms.test.js tests/cloudinary.test.js tests/image-migration.test.js && node tests/e2e-sms-flow.js && node tests/e2e-sms-flow.js --messaging-service && node tests/e2e-sms-flow.js --bad-sid && node tests/e2e-product-images.js && node tests/e2e-product-images.js --no-cloudinary && node tests/e2e-migration-cli.js"
+    "test": "node --test tests/ai-assistant.test.js tests/sms.test.js tests/order-sms.test.js tests/order-email.test.js tests/cloudinary.test.js tests/image-migration.test.js && node tests/e2e-sms-flow.js && node tests/e2e-sms-flow.js --messaging-service && node tests/e2e-sms-flow.js --bad-sid && node tests/e2e-product-images.js && node tests/e2e-product-images.js --no-cloudinary && node tests/e2e-migration-cli.js"
   },
   "engines": {
     "node": ">=18"

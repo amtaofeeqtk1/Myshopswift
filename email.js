@@ -20,6 +20,8 @@ const SMTP_SECURE = process.env.SMTP_SECURE === "true";
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const EMAIL_FROM = process.env.EMAIL_FROM || "MyShopSwift <no-reply@myshopswift.local>";
+const PUBLIC_URL = (process.env.PUBLIC_URL || "https://myshopswift.co.uk").replace(/\/$/, "");
+const CONTACT_EMAIL = process.env.CONTACT_INBOX_EMAIL || "info@myshopswift.co.uk";
 
 const isConfigured = !!(nodemailer && SMTP_HOST && SMTP_USER && SMTP_PASS);
 
@@ -163,6 +165,43 @@ function orderHeaderHtml(order) {
   `;
 }
 
+function orderProfileUrl(order) {
+  return `${PUBLIC_URL}/index.html?account=orders&order=${encodeURIComponent(order.id)}#top`;
+}
+
+function brandedOrderEmail(order, intro) {
+  const profileUrl = orderProfileUrl(order);
+  const websiteUrl = `${PUBLIC_URL}/`;
+  return `
+    <div style="margin:0;background:#f2f4f8;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;color:#14264f;">
+      <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e3e7ef;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(15,42,107,.08);">
+        <div style="background:#ffffff;padding:22px 30px 16px;text-align:center;border-bottom:3px solid #e97824;">
+          <a href="${websiteUrl}" style="display:inline-block;text-decoration:none;">
+            <img src="${PUBLIC_URL}/assets/logo-cropped.jpg" alt="MyShopSwift" width="190" style="display:block;width:190px;max-width:100%;height:auto;border:0;margin:0 auto;">
+          </a>
+          <div style="margin-top:8px;color:#0F2A6B;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Shop easy. Order fast. Delivered swift.</div>
+        </div>
+        <div style="padding:30px;">
+          ${orderHeaderHtml(order)}
+          <h1 style="font-size:23px;line-height:1.3;margin:20px 0 10px;color:#0F2A6B;">${intro}</h1>
+          <p style="font-size:14px;line-height:1.7;color:#4c5870;margin:0 0 18px;">Your order details are below. You can return to your account any time to review this order and follow its status.</p>
+          <div style="background:#f7f8fb;border:1px solid #e5e9f1;border-radius:10px;padding:14px 16px;">
+            ${orderSummaryHtml(order)}
+          </div>
+          <p style="text-align:center;margin:26px 0 8px;">
+            <a href="${profileUrl}" style="background:#0F2A6B;color:#ffffff;padding:13px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-size:14px;font-weight:700;">View this order in your account</a>
+          </p>
+          <p style="font-size:12px;line-height:1.7;color:#68738a;text-align:center;margin:14px 0 0;">If you’re not signed in, we’ll ask you to sign in before showing your orders.</p>
+        </div>
+        <div style="background:#f7f8fb;border-top:1px solid #e5e9f1;padding:20px 28px;text-align:center;color:#68738a;font-size:12px;line-height:1.8;">
+          <a href="${websiteUrl}" style="color:#0F2A6B;font-weight:700;text-decoration:none;">myshopswift.co.uk</a>
+          &nbsp; · &nbsp; <a href="mailto:${CONTACT_EMAIL}" style="color:#0F2A6B;text-decoration:none;">${CONTACT_EMAIL}</a>
+          <div style="margin-top:6px;">Thank you for shopping with MyShopSwift.</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ---------- Email verification ----------
 
 function verificationEmail(name, verifyUrl) {
@@ -191,16 +230,16 @@ async function sendVerificationEmail(to, name, verifyUrl) {
 function orderPlacedEmail(order) {
   return {
     subject: `Order received — #${order.id.slice(0, 8)} — MyShopSwift`,
-    html: `${orderHeaderHtml(order)}<p>Thanks for your order! Here's a summary:</p>${orderSummaryHtml(order)}<p>— MyShopSwift</p>`,
-    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nThanks for your order! Order reference #${order.id.slice(0, 8)}, placed ${new Date(order.createdAt).toLocaleString("en-GB")}.\n\n${orderSummaryText(order)}\n\n— MyShopSwift`
+    html: brandedOrderEmail(order, "Thanks for your order"),
+    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nThanks for your order! Order reference #${order.id.slice(0, 8)}, placed ${new Date(order.createdAt).toLocaleString("en-GB")}.\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
   };
 }
 
 function paymentConfirmedEmail(order) {
   return {
     subject: `Payment confirmed — #${order.id.slice(0, 8)} — MyShopSwift`,
-    html: `${orderHeaderHtml(order)}<p>Your payment has been confirmed. Here's your order summary:</p>${orderSummaryHtml(order)}<p>— MyShopSwift</p>`,
-    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour payment for order #${order.id.slice(0, 8)} has been confirmed.\n\n${orderSummaryText(order)}\n\n— MyShopSwift`
+    html: brandedOrderEmail(order, "Payment confirmed"),
+    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour payment for order #${order.id.slice(0, 8)} has been confirmed.\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
   };
 }
 
@@ -208,8 +247,8 @@ function orderStatusEmail(order) {
   const statusInfo = STATUS_INFO[order.status] || { label: order.status, next: "" };
   return {
     subject: `Order #${order.id.slice(0, 8)} update: ${statusInfo.label} — MyShopSwift`,
-    html: `${orderHeaderHtml(order)}<p>Your order status has changed to <strong>${statusInfo.label}</strong>.</p>${orderSummaryHtml(order)}<p>— MyShopSwift</p>`,
-    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour order #${order.id.slice(0, 8)} status has changed to: ${statusInfo.label}\n\n${orderSummaryText(order)}\n\n— MyShopSwift`
+    html: brandedOrderEmail(order, `Your order is ${escapeHtml(statusInfo.label.toLowerCase())}`),
+    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour order #${order.id.slice(0, 8)} status has changed to: ${statusInfo.label}\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
   };
 }
 
@@ -231,6 +270,9 @@ async function sendOrderStatusEmail(order) {
 module.exports = {
   isConfigured,
   escapeHtml,
+  orderPlacedEmail,
+  paymentConfirmedEmail,
+  orderStatusEmail,
   sendMail,
   sendPasswordResetEmail,
   sendVerificationEmail,
