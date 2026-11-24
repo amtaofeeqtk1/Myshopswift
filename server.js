@@ -3,7 +3,7 @@
 // Adds to the original catalogue API:
 //   - customer accounts (register/login) via httpOnly session cookies
 //   - order placement, with server-side price recalculation
-//   - Cash on Delivery, plus optional card payment via Stripe Checkout
+//   - Card payment via Stripe Checkout and reward points
 //   - admin endpoints to manage orders and view customers
 //
 // Storage is three flat JSON files in data/ — fine for a small shop,
@@ -84,7 +84,7 @@ const stripe = STRIPE_SECRET_KEY ? require("stripe")(STRIPE_SECRET_KEY) : null;
 const CONTACT_INBOX_EMAIL = process.env.CONTACT_INBOX_EMAIL || process.env.SMTP_USER || "";
 
 if (!stripe) {
-  console.warn("NOTE: STRIPE_SECRET_KEY not set — card payments are disabled, Cash on Delivery still works.");
+  console.warn("NOTE: STRIPE_SECRET_KEY not set — card payments are disabled.");
 }
 if (!ADMIN_EMAIL) {
   console.warn("NOTE: ADMIN_EMAIL not set — new-order emails will be skipped (dashboard/browser notifications still work).");
@@ -93,10 +93,12 @@ if (!imageStore.config.configured) {
   console.warn("NOTE: Cloudinary isn't configured (CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET missing) — admin photo and flyer uploads will be refused until it is. Existing images keep displaying.");
 }
 imageStore.config.problems.forEach(p => console.warn("NOTE: Cloudinary config problem — " + p));
-if (!orderSms.config.configured) {
-  console.warn("NOTE: SMS isn't configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM or TWILIO_MESSAGING_SERVICE_SID missing, or SMS_ENABLED=false) — customer SMS notifications are off. Email is unaffected.");
+if (orderSms.config.problems.length) {
+  console.warn("NOTE: SMS is OFF because of a configuration problem — customer SMS notifications are not being sent. Email is unaffected.");
+  orderSms.config.problems.forEach(p => console.warn("NOTE: SMS config problem — " + p));
+} else if (!orderSms.config.configured) {
+  console.warn("NOTE: SMS isn't configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN and TWILIO_FROM or TWILIO_MESSAGING_SERVICE_SID missing, or SMS_ENABLED=false) — customer SMS notifications are off. Email is unaffected.");
 }
-orderSms.config.problems.forEach(p => console.warn("NOTE: SMS config problem — " + p));
 
 // ---------- Stripe Webhook (must come BEFORE express.json) ----------
 app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
@@ -455,11 +457,11 @@ const registerRateLimit = makeRateLimiter({ windowMs: 60 * 60 * 1000, max: 15 })
 const accountEmailRateLimit = makeRateLimiter({ windowMs: 15 * 60 * 1000, max: 15 }); // forgot/reset/verify/resend
 const contactRateLimit = makeRateLimiter({ windowMs: 60 * 60 * 1000, max: 8 });
 
-const PAYMENT_METHOD_LABELS = { cod: "Cash on Delivery", card: "Online Payment (Card)", points: "Points Payment" };
+const PAYMENT_METHOD_LABELS = { card: "Pay by Card", points: "Pay by Point", cod: "Legacy payment" };
 const fmtGBP = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Single entry point for "an order just became real" — called from every
-// place an order can be confirmed (COD/points-only at creation, card
+// place an order can be confirmed (points-only at creation, card
 // payment via the Stripe webhook, and card payment via the client-side
 // confirm endpoint as a fallback if the webhook isn't configured). Those
 // three paths can race or overlap for the same order; createIfNew()'s
@@ -692,7 +694,7 @@ async function getAllOrders() {
 }
 
 // Used after order creation to persist points deduction that happened in
-// the same request (COD/points orders confirm immediately).
+// the same request (points-only orders confirm immediately).
 async function markOrderPointsDeducted(id) {
   await db.query(`UPDATE orders SET points_deducted = true WHERE id = $1`, [id]);
 }
@@ -1456,13 +1458,13 @@ app.post("/api/auth/resend-verification", accountEmailRateLimit, async (req, res
 // ==================== ORDERS ====================
 
 const REPLACEMENT_OPTIONS = new Set(["", "similar", "contact", "refund"]);
-const PAYMENT_METHODS = new Set(["cod", "card", "points"]);
+const PAYMENT_METHODS = new Set(["card", "points"]);
 const STANDARD_DELIVERY_FEE = 5.99;
 const FREE_DELIVERY_SUBTOTAL_THRESHOLD = 100; // strictly greater than this is free
 
 // Server-side delivery fee calculation — the only place this is ever
 // decided. Never trust a delivery fee from the browser. Used identically
-// for Cash on Delivery, points, and card orders (Stripe is charged whatever
+// for points and card orders (Stripe is charged whatever
 // this returns).
 async function calculateDeliveryFee(userId, subtotal) {
   if (subtotal > FREE_DELIVERY_SUBTOTAL_THRESHOLD) {
@@ -1526,7 +1528,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "A valid phone number is required" });
   }
   if (paymentMethod === "card" && !stripe) {
-    return res.status(400).json({ error: "Card payment isn't configured on this server yet — choose Cash on Delivery" });
+    return res.status(400).json({ error: "Card payment isn't configured on this server yet. Please try again later." });
   }
 
   // Never trust client-supplied prices — recompute from the live catalogue.
@@ -1610,15 +1612,14 @@ app.post("/api/orders", requireAuth, async (req, res) => {
   if (amountDue < 0) amountDue = 0;
 
   if (paymentMethod === "points" && amountDue > 0) {
-    return res.status(400).json({ error: "Your points don't cover the full order — choose Cash on Delivery or card for the rest" });
+    return res.status(400).json({ error: "Your points don't cover the full order. Choose card payment or use more points." });
   }
 
   const fullyCoveredByPoints = amountDue <= 0 && pointsUsed > 0;
   const effectivePaymentMethod = fullyCoveredByPoints ? "points" : paymentMethod;
-  // COD and points-only orders are trusted immediately, same as this app
-  // already trusted COD orders before points existed. Card orders stay
-  // "awaiting_payment" until confirmed below.
-  const confirmedNow = effectivePaymentMethod === "cod" || effectivePaymentMethod === "points";
+  // Points-only orders are confirmed after the points debit succeeds.
+  // Card orders stay "awaiting_payment" until Stripe confirms payment.
+  const confirmedNow = effectivePaymentMethod === "points";
 
   const order = {
     id: crypto.randomUUID(),
@@ -1642,7 +1643,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  // Deduct points only once the order is actually confirmed. For COD/points
+  // Deduct points only once the order is actually confirmed. For points
   // orders that's right now; for card orders it happens later in
   // /api/orders/:id/confirm-card-payment, after Stripe confirms payment.
   // awardPoints() is idempotent per refId, so this can never double-deduct
@@ -1654,7 +1655,14 @@ app.post("/api/orders", requireAuth, async (req, res) => {
         reason: `Used as payment for order #${order.id.slice(0, 8)}`,
         orderId: order.id, refId: `payment:${order.id}`
       });
-      if (tx && !tx.error) order.pointsDeducted = true;
+      if (!tx || tx.error) {
+        return res.status(tx && tx.error === "insufficient_points" ? 409 : 500).json({
+          error: tx && tx.error === "insufficient_points"
+            ? "Your points balance changed. Please review your points and try again."
+            : "Could not verify your points payment — please try again"
+        });
+      }
+      order.pointsDeducted = true;
     } catch (error) {
       console.error("[orders] Failed to deduct points for order:", error.message);
       return res.status(500).json({ error: "Could not process your order — please try again" });
@@ -1665,7 +1673,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     await insertOrder(order);
   } catch (error) {
     console.error("[orders] Failed to save order:", error.message);
-    // Points were already deducted above for COD/points orders — give them
+    // Points were already deducted above for points orders — give them
     // back, otherwise a failed save silently costs the customer their points.
     if (order.pointsDeducted) {
       await rewards.awardPoints({

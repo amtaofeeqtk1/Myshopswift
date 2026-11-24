@@ -754,7 +754,7 @@
   </div>
   <div class="foot-bottom">
     <span>© 2026 MyShopSwift. All rights reserved.</span>
-    <span>Card • Cash on Delivery</span>
+    <span>Card • Reward points</span>
   </div>
 </footer>
 
@@ -993,10 +993,10 @@
       <div class="field">
         <label>Payment method</label>
         <div class="pay-options">
-          <label class="pay-option"><input type="radio" name="payMethod" value="cod" checked> Cash on Delivery</label>
-          <label class="pay-option"><input type="radio" name="payMethod" value="card"> Pay by card</label>
+          <label class="pay-option"><input type="radio" name="payMethod" value="card" checked> Pay by Card</label>
+          <label class="pay-option"><input type="radio" name="payMethod" value="points"> Pay by Point</label>
         </div>
-        <div class="hint" id="payMethodHint" style="display:none;">Your points cover the full order — no card or cash needed.</div>
+        <div class="hint" id="payMethodHint" style="display:none;">Your points cover the full order.</div>
       </div>
       <div class="checkout-summary" id="checkoutSummary"></div>
       <p class="form-error" id="checkoutError"></p>
@@ -1966,9 +1966,14 @@
     if(!phone){ errEl.textContent = "A phone number is required"; return; }
 
     const { pointsUsed, amountDue } = updateCheckoutSummary();
+    const selectedPaymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
+    if(selectedPaymentMethod === "points" && amountDue > 0){
+      errEl.textContent = "Your points must cover the full order to pay by point.";
+      return;
+    }
     const paymentMethod = amountDue <= 0 && pointsUsed > 0
       ? "points"
-      : document.querySelector('input[name="payMethod"]:checked').value;
+      : selectedPaymentMethod;
 
     const items = cart.map(line => ({
       productId: line.productId,

@@ -23,11 +23,17 @@ const PORT = 38123;
 const BASE = `http://127.0.0.1:${PORT}`;
 const PUBLIC_URL = "https://shop.example.com";
 const PRODUCTION = (process.env.NODE_ENV || "production") === "production";
+// Variants: (default) TWILIO_FROM sender | --messaging-service: TWILIO_MESSAGING_SERVICE_SID (with TWILIO_FROM also set,
+// to prove they don't conflict) | --bad-sid: a malformed Messaging Service SID (SMS must switch itself off, orders unaffected).
+const VARIANT = process.argv.includes("--messaging-service") ? "service" : process.argv.includes("--bad-sid") ? "badsid" : "from";
+const SERVICE_SID = "MG" + "0123456789abcdef0123456789abcdef";
+const VARIANT_ENV = VARIANT === "service" ? { TWILIO_MESSAGING_SERVICE_SID: SERVICE_SID }
+  : VARIANT === "badsid" ? { TWILIO_MESSAGING_SERVICE_SID: "AC" + "0123456789abcdef0123456789abcdef" } : {};
 process.env.NODE_ENV = PRODUCTION ? "production" : "development";
 
 Object.assign(process.env, {
   DATABASE_URL: "postgres://fake/fake", PORT: String(PORT), PUBLIC_URL,
-  TWILIO_ACCOUNT_SID: "ACtest", TWILIO_AUTH_TOKEN: "twilio-test-token", TWILIO_FROM: "MyShopSwift",
+  TWILIO_ACCOUNT_SID: "ACtest", TWILIO_AUTH_TOKEN: "twilio-test-token", TWILIO_FROM: "MyShopSwift", ...VARIANT_ENV,
   STRIPE_SECRET_KEY: "sk_test_fake", STRIPE_WEBHOOK_SECRET: "whsec_test_secret",
   ADMIN_EMAIL: "admin@example.com"
 });
@@ -98,10 +104,16 @@ class FakePool {
 }
 
 const rewardsCalls = [];
+let testPointsBalance = 0;
+let testPointDebitFailure = false;
 const fakeRewards = {
   readSettings: async () => ({ voucherPointsPerPound: 10 }),
-  getOrCreateAccount: async () => ({ pointsBalance: 0 }),
-  awardPoints: async () => null,
+  getOrCreateAccount: async () => ({ pointsBalance: testPointsBalance }),
+  awardPoints: async tx => {
+    if (tx.points < 0 && testPointDebitFailure) return { error: "insufficient_points" };
+    testPointsBalance += tx.points;
+    return { error: null };
+  },
   awardSignupBonus: async () => null,
   processQualifyingPurchase: async o => { rewardsCalls.push(["award", o.id]); },
   reverseQualifyingPurchase: async o => { rewardsCalls.push(["reverse", o.id]); }
@@ -160,7 +172,7 @@ const user = { cookie: "session=usertoken" };
 const other = { cookie: "session=othertoken" };
 const admin = { cookie: "admin_session=admintoken" };
 const GOOD_ADDRESS = { line1: "1 High Street", city: "London", postcode: "E1 6AN" };
-const placeOrder = (over = {}, who = user) => http("POST", "/api/orders", { ...who, body: { items: [{ productId: 1, qty: 1 }], paymentMethod: "cod", address: GOOD_ADDRESS, phone: "07739 320205", ...over } });
+const placeOrder = (over = {}, who = user) => http("POST", "/api/orders", { ...who, body: { items: [{ productId: 1, qty: 1 }], paymentMethod: "card", address: GOOD_ADDRESS, phone: "07739 320205", ...over } });
 const twilioBodiesFor = orderId => twilio.calls.filter(c => c.params.get("Body").includes("#" + orderId.slice(0, 8))).map(c => c.params.get("Body"));
 const smsFor = (orderId, event) => store.smsRows.filter(r => r.order_id === orderId && (!event || r.event === event));
 const twilioSig = (url, params) => crypto.createHmac("sha1", process.env.TWILIO_AUTH_TOKEN).update(url + Object.keys(params).sort().map(k => k + params[k]).join("")).digest("base64");
@@ -183,6 +195,24 @@ async function step(name, fn) {
     assert.equal(store.schemaEnsured, true);
   });
 
+  if (VARIANT === "badsid") {
+    await step("malformed Messaging Service SID: SMS switches itself off with a clear reason; orders still succeed; nothing sent to Twilio", async () => {
+      assert.ok(serverLogs.some(l => l.includes("SMS is OFF because of a configuration problem")));
+      assert.ok(serverLogs.some(l => l.includes("TWILIO_MESSAGING_SERVICE_SID is not a valid Messaging Service SID") && l.includes("Account SID")));
+      assert.ok(!serverLogs.join("\n").includes("0123456789abcdef0123456789abcdef"), "the SID value is never logged");
+      const r = await placeOrder();
+      assert.equal(r.status, 201, "checkout is unaffected");
+      await sleep(100);
+      assert.equal(twilio.calls.length, 0);
+      assert.equal(store.smsRows.length, 0, "no failed rows are created for every order");
+      const adminInfo = await http("GET", "/api/admin/sms-notifications", admin);
+      assert.equal(adminInfo.json.configured, false);
+      assert.match(adminInfo.json.problems[0], /not a valid Messaging Service SID/);
+    });
+    out(`\n${passed} passed, ${failed} failed\n`);
+    process.exit(failed ? 1 : 0);
+  }
+
   await step("admin SMS endpoints and delivery callback reject anonymous callers", async () => {
     assert.equal((await http("GET", "/api/admin/sms-notifications")).status, 401);
     assert.equal((await http("POST", "/api/admin/sms-notifications/x/retry")).status, 401);
@@ -195,7 +225,7 @@ async function step(name, fn) {
   });
 
   let order1;
-  await step("COD order: created (201) and 'order received' SMS goes to the checkout number with the real reference", async () => {
+  await step("card order: created as awaiting payment and 'order received' SMS goes to the checkout number", async () => {
     const r = await placeOrder();
     assert.equal(r.status, 201);
     order1 = r.json.order;
@@ -203,12 +233,51 @@ async function step(name, fn) {
     assert.equal(twilio.calls.length, 1);
     const c = twilio.calls[0];
     assert.equal(c.params.get("To"), "+447739320205");
-    assert.equal(c.params.get("From"), "MyShopSwift");
+    if (VARIANT === "service") {
+      assert.equal(c.params.get("MessagingServiceSid"), SERVICE_SID);
+      assert.equal(c.params.has("From"), false, "From must not accompany MessagingServiceSid");
+    } else {
+      assert.equal(c.params.get("From"), "MyShopSwift");
+      assert.equal(c.params.has("MessagingServiceSid"), false);
+    }
     assert.equal(c.params.get("Body"), `MyShopSwift: Your order #${order1.id.slice(0, 8)} has been successfully received. Thank you for shopping with us!`);
     assert.equal(c.params.get("StatusCallback"), PUBLIC_URL + "/api/sms/twilio-status");
     assert.ok(c.auth.startsWith("Basic "));
     assert.equal(smsFor(order1.id, "order_placed")[0].status, "queued");
     assert.equal(store.orders.get(order1.id).id, order1.id, "reference matches the stored record");
+  });
+
+  await step("legacy cash-on-delivery API request is rejected without creating an order", async () => {
+    const before = store.orders.size;
+    const r = await placeOrder({ paymentMethod: "cod" });
+    assert.equal(r.status, 400);
+    assert.equal(store.orders.size, before);
+  });
+
+  await step("checkout lists card before points and has no legacy payment choice", async () => {
+    const html = require("fs").readFileSync(require("path").join(__dirname, "../public/index.html"), "utf8");
+    const options = [...html.matchAll(/name="payMethod" value="([^"]+)"/g)].map(match => match[1]);
+    assert.deepEqual(options, ["card", "points"]);
+  });
+
+  await step("points-only order is confirmed only after points are deducted", async () => {
+    testPointsBalance = 1000;
+    const r = await placeOrder({ paymentMethod: "points", pointsToUse: 1000 });
+    assert.equal(r.status, 201);
+    assert.equal(r.json.order.paymentMethod, "points");
+    assert.equal(r.json.order.status, "pending");
+    assert.equal(r.json.order.amountDue, 0);
+    assert.equal(r.json.order.pointsDeducted, true);
+  });
+
+  await step("points debit failure does not create a confirmed order", async () => {
+    testPointsBalance = 1000;
+    testPointDebitFailure = true;
+    const before = store.orders.size;
+    const r = await placeOrder({ paymentMethod: "points", pointsToUse: 1000 });
+    assert.equal(r.status, 409);
+    assert.equal(store.orders.size, before);
+    testPointDebitFailure = false;
   });
 
   await step("customer with no usable mobile number: order still succeeds, SMS recorded as skipped", async () => {

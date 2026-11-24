@@ -115,7 +115,7 @@
   </div>
   <div class="foot-bottom">
     <span>© 2026 MyShopSwift. All rights reserved.</span>
-    <span>Card • Cash on Delivery</span>
+    <span>Card • Reward points</span>
   </div>
 </footer>
 
@@ -139,7 +139,7 @@
       <div class="order-status-row"><span>Status</span><span class="status-pill ${statusClass}">${STATUS_LABELS[o.status] || o.status}</span></div>
       <div class="order-status-row"><span>Items</span><span>${o.items.reduce((s,i)=>s+i.qty,0)}</span></div>
       <div class="order-status-row"><span>Total</span><span>${fmt(o.total)}</span></div>
-      <div class="order-status-row"><span>Payment</span><span>${o.paymentMethod === "points" ? "Points" : (o.paymentMethod === "cod" ? "Cash on Delivery" : "Card")}</span></div>
+      <div class="order-status-row"><span>Payment</span><span>${o.paymentMethod === "points" ? "Pay by Point" : (o.paymentMethod === "cod" ? "Legacy payment" : "Pay by Card")}</span></div>
       <div style="margin-top:14px;">
         <a class="btn btn-outline" href="${window.MSSWhatsApp.link(o.id)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Message us on WhatsApp about this order</a>
         <p style="font-size:12.5px;color:#666;margin:8px 0 0;">Opens a chat with our team. It isn't automatic live tracking — the status above is the latest on your account.</p>

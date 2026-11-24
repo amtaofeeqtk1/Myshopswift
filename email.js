@@ -87,7 +87,7 @@ function fmtGBP(n) {
   return "£" + Number(n || 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const PAYMENT_METHOD_LABELS = { cod: "Cash on Delivery", card: "Online Payment (Card)", points: "Points Payment" };
+const PAYMENT_METHOD_LABELS = { cod: "Legacy payment", card: "Pay by Card", points: "Pay by Point" };
 const STATUS_INFO = {
   pending: { label: "Pending", next: "We're getting your order ready." },
   awaiting_payment: { label: "Awaiting payment", next: "This order is held until your card payment completes." },

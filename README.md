@@ -1,7 +1,7 @@
 # MyShopSwift
 
 A West African grocery + gadgets storefront for the UK market: customer
-accounts, checkout with Cash on Delivery or card payment, order
+accounts, checkout with card payment or reward points, order
 management, and a live admin panel for products, categories, orders,
 and customers.
 
@@ -42,9 +42,8 @@ Edit `.env`:
 - `ADMIN_EMAIL` — your admin email (new-order alerts go here). The admin
   panel signs in with an email and password; see `.env.example`. The old
   `ADMIN_KEY` is no longer used.
-- `STRIPE_SECRET_KEY` — optional. Leave blank and card payment is
-  disabled but Cash on Delivery still works fully. Add a real Stripe
-  secret key to enable "Pay by card" at checkout (Stripe Checkout
+- `STRIPE_SECRET_KEY` — optional. Add a real Stripe
+  secret key to enable "Pay by Card" at checkout (Stripe Checkout
   handles the card form — no card details ever touch this server).
 - `PUBLIC_URL` — set this to your real deployed URL once live, so
   Stripe's redirect back to your site works correctly.
@@ -64,7 +63,7 @@ npm start
   secure httpOnly cookie — nothing stored in browser localStorage)
 - Browse, search, and filter the catalogue
 - Add to basket, check out with a delivery address
-- Choose Cash on Delivery, or pay by card via Stripe if configured
+- Pay by Card via Stripe or use reward points; points may cover all or part of an order
 - View their own past orders from the account panel
 
 ## What the admin panel does
@@ -284,7 +283,7 @@ There is no `BACKUP_KEY`, `BACKUP_INTERVAL_HOURS`, `BACKUP_RETENTION`, or
 ## Admin new-order notifications
 
 Three channels, all triggered from one place — the moment an order actually
-becomes real (Cash on Delivery/points at creation, card payment once Stripe
+becomes real (points at creation, card payment once Stripe
 confirms it via the webhook or the client-side confirm fallback):
 
 - **Dashboard** — a Notifications button in the admin header with an
@@ -404,8 +403,23 @@ live server (delivery reports need it).
    (idempotent, additive only).
 5. Redeploy, then run the staging checklist below.
 
+**Troubleshooting Twilio error 21705 ("The Messaging Service is invalid").**
+Twilio returns it when the `MessagingServiceSid` it receives is not exactly
+`MG` + 32 letters/digits (34 characters). It is about the *format of that one
+value*, not your credentials or sender approval. If you use
+`TWILIO_MESSAGING_SERVICE_SID`: it must be the Messaging Service's own SID from
+Twilio Console > Messaging > Services (not the service name, the Account SID
+`AC…`, or the alphanumeric sender's `AI…` SID), entered in Render without
+quotes. The server now removes stray quotes/spaces/invisible characters, checks
+the format at startup, and — if it is wrong — switches SMS off and logs
+`SMS config problem — TWILIO_MESSAGING_SERVICE_SID is not a valid Messaging
+Service SID…` (also shown in Admin > Orders) instead of failing every order's
+text. When a Messaging Service SID is set it is the only sender sent to Twilio;
+`TWILIO_FROM` is not used. The Messaging Service must belong to the same Twilio
+account as `TWILIO_ACCOUNT_SID`.
+
 **Staging checklist (needs real services, not covered by automated tests).**
-Place a COD order with your own mobile and confirm the text arrives; pay a
+Place a points-only order with your own mobile and confirm the text arrives; pay a
 Stripe test-mode card order and confirm one "received" and one "payment" text;
 change the order to Processing, Dispatched, Delivered and confirm each arrives
 once and shows "delivered" in the admin (proves Twilio callbacks reach

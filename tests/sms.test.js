@@ -8,6 +8,8 @@ const assert = require("node:assert/strict");
 const crypto = require("crypto");
 const sms = require("../sms");
 
+// A syntactically valid (made-up) Messaging Service SID: "MG" + 32 hex characters.
+const SERVICE_SID = "MG" + "0123456789abcdef0123456789abcdef";
 const ORDER_ID = "a1b2c3d4-0000-4000-8000-123456789abc";
 
 test("normalisePhone: UK numbers in the formats customers actually type", () => {
@@ -67,7 +69,7 @@ test("loadConfig: not configured without credentials; configured with them", () 
   assert.equal(sms.loadConfig({}).configured, false);
   assert.equal(sms.loadConfig({ TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t" }).configured, false, "needs a sender");
   assert.equal(sms.loadConfig({ TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_FROM: "MyShopSwift" }).configured, true);
-  assert.equal(sms.loadConfig({ TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_MESSAGING_SERVICE_SID: "MG1" }).configured, true);
+  assert.equal(sms.loadConfig({ TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_MESSAGING_SERVICE_SID: SERVICE_SID }).configured, true);
   assert.equal(sms.loadConfig({ TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_FROM: "+447700900123" }).configured, true);
   const off = sms.loadConfig({ TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_FROM: "MyShopSwift", SMS_ENABLED: "false" });
   assert.equal(off.configured, false, "SMS_ENABLED=false is a kill switch");
@@ -167,4 +169,82 @@ test("sendSms: refuses to call the provider when SMS isn't configured", async ()
   const r = await sms.sendSms({ to: "+447739320205", body: "hi", config: sms.loadConfig({}), fetchImpl: async () => { called = true; } });
   assert.equal(r.ok, false);
   assert.equal(called, false);
+});
+
+
+// ---- TWILIO_MESSAGING_SERVICE_SID handling (Twilio error 21705) ----
+
+const BASE_ENV = { TWILIO_ACCOUNT_SID: "AC" + "a".repeat(32), TWILIO_AUTH_TOKEN: "tok" };
+
+test("Messaging Service SID: a valid MG SID is read from TWILIO_MESSAGING_SERVICE_SID and used as the only sender", () => {
+  const cfg = sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: SERVICE_SID, SMS_ENABLED: "true" });
+  assert.equal(cfg.configured, true);
+  assert.equal(cfg.messagingServiceSid, SERVICE_SID);
+  assert.deepEqual(cfg.problems, []);
+});
+
+test("Messaging Service SID: sent as MessagingServiceSid and never together with From, even if TWILIO_FROM is also set", async () => {
+  const cfg = sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: SERVICE_SID, TWILIO_FROM: "MyShopSwift" });
+  let sent;
+  await sms.sendSms({ to: "+447739320205", body: "hi", config: cfg, fetchImpl: async (u, init) => { sent = new URLSearchParams(init.body); return { ok: true, status: 201, json: async () => ({ sid: "SM1", status: "queued" }) }; } });
+  assert.equal(sent.get("MessagingServiceSid"), SERVICE_SID);
+  assert.equal(sent.has("From"), false, "From must not be sent alongside MessagingServiceSid");
+  assert.equal(sent.get("To"), "+447739320205");
+});
+
+test("Messaging Service SID: wrapping quotes, whitespace, newlines, BOM and zero-width characters pasted into the env var are removed", () => {
+  const variants = [`"${SERVICE_SID}"`, `'${SERVICE_SID}'`, `  ${SERVICE_SID}  `, `${SERVICE_SID}\n`, `\uFEFF${SERVICE_SID}`, `${SERVICE_SID}\u200B`, `\u00A0${SERVICE_SID}\u00A0`, `\u201C${SERVICE_SID}\u201D`, ` "${SERVICE_SID}" `];
+  for (const v of variants) {
+    const cfg = sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: v });
+    assert.equal(cfg.messagingServiceSid, SERVICE_SID, JSON.stringify(v));
+    assert.equal(cfg.configured, true, JSON.stringify(v));
+  }
+});
+
+test("Messaging Service SID: anything that is not MG + 32 hex turns SMS off with a precise reason (instead of failing every send with 21705)", () => {
+  const bad = [
+    "MG" + "0123456789abcdef0123456789abcde",        // one character short
+    "MG" + "0123456789abcdef0123456789abcdef0",      // one too long
+    "MG" + "0123456789abcdef0123456789abcdeg",       // non-hex character
+    "mg" + "0123456789abcdef0123456789abcdef",       // lower-case prefix is not a valid SID
+    "AC" + "0123456789abcdef0123456789abcdef",       // an Account SID
+    "AI" + "0123456789abcdef0123456789abcdef",       // a sender-ID SID
+    "MyShopSwift",                                   // the sender ID text or service name
+    "MG 0123456789abcdef0123456789abcdef"            // internal space
+  ];
+  for (const v of bad) {
+    const cfg = sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: v });
+    assert.equal(cfg.configured, false, v);
+    assert.equal(cfg.problems.length, 1, v);
+    assert.match(cfg.problems[0], /TWILIO_MESSAGING_SERVICE_SID is not a valid Messaging Service SID/);
+    assert.ok(cfg.problems[0].includes(`${v.length} characters`), "reports the length");
+    assert.ok(!cfg.problems[0].includes(v.slice(2)), "never prints the value itself");
+  }
+  assert.match(sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: "AC" + "0".repeat(32) }).problems[0], /looks like an Account SID/);
+  assert.match(sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: "AI" + "0".repeat(32) }).problems[0], /Sender ID SID/);
+});
+
+test("Messaging Service SID: an invalid SID is NOT silently replaced by TWILIO_FROM (no surprise sender)", async () => {
+  const cfg = sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: "not-a-sid", TWILIO_FROM: "MyShopSwift" });
+  assert.equal(cfg.configured, false);
+  let called = false;
+  const r = await sms.sendSms({ to: "+447739320205", body: "hi", config: cfg, fetchImpl: async () => { called = true; } });
+  assert.equal(r.ok, false); assert.equal(called, false, "nothing is sent to Twilio with a bad SID");
+});
+
+test("Without a Messaging Service SID, TWILIO_FROM still works exactly as before", () => {
+  assert.equal(sms.loadConfig({ ...BASE_ENV, TWILIO_FROM: "MyShopSwift" }).configured, true);
+  assert.equal(sms.loadConfig({ ...BASE_ENV, TWILIO_FROM: "+447700900123" }).configured, true);
+});
+
+test("Twilio error 21705 / 20003 get a message that names the setting to fix; other errors are untouched", async () => {
+  const cfg = sms.loadConfig({ ...BASE_ENV, TWILIO_MESSAGING_SERVICE_SID: SERVICE_SID });
+  const fail = (code, message) => async () => ({ ok: false, status: 400, json: async () => ({ code, message }) });
+  const a = await sms.sendSms({ to: "+447739320205", body: "hi", config: cfg, fetchImpl: fail(21705, "The Messaging Service is invalid") });
+  assert.equal(a.errorCode, "21705"); assert.match(a.errorMessage, /TWILIO_MESSAGING_SERVICE_SID/); assert.match(a.errorMessage, /MG/);
+  const b = await sms.sendSms({ to: "+447739320205", body: "hi", config: cfg, fetchImpl: fail(20003, "Authenticate") });
+  assert.match(b.errorMessage, /TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN/);
+  const c = await sms.sendSms({ to: "+447739320205", body: "hi", config: cfg, fetchImpl: fail(21211, "Invalid 'To' number +447739320205") });
+  assert.ok(!c.errorMessage.includes("7739"), "phone numbers are still redacted");
+  assert.match(c.errorMessage, /Invalid 'To' number/);
 });

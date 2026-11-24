@@ -21,7 +21,9 @@ function rowToNotification(row) {
     id: row.id,
     type: row.type,
     title: row.title,
-    message: row.message,
+    // Keep historical notification records intact while hiding retired
+    // payment wording anywhere the dashboard displays or streams them.
+    message: String(row.message || "").replace(/cash on delivery|pay on delivery/gi, "Legacy payment"),
     orderId: row.order_id,
     customerId: row.customer_id,
     dedupeKey: row.dedupe_key,

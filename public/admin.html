@@ -1275,7 +1275,8 @@
       .sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
     const small = "font-size:10.5px;margin-top:6px;";
     if(rows.length === 0){
-      return `<div style="${small}color:#888;">${info.configured ? "SMS: none sent yet" : "SMS: not configured"}</div>`;
+      const why = !info.configured && info.problems && info.problems.length ? `<div style="${small}color:var(--rust);">${escapeHtml(info.problems[0])}</div>` : "";
+      return `<div style="${small}color:#888;">${info.configured ? "SMS: none sent yet" : "SMS: not configured"}</div>${why}`;
     }
     return `<div style="margin-top:6px;">${rows.map(n => {
       const bad = n.status === "failed" || n.status === "undelivered";
@@ -1328,8 +1329,8 @@
         return `<div style="margin-bottom:8px;">${bits.join("")}</div>`;
       }).join("");
       const paymentLabel = o.paymentMethod === "points"
-        ? "Points (fully paid)"
-        : (o.paymentMethod === "cod" ? "Cash on Delivery" : "Card");
+        ? "Pay by Point (fully paid)"
+        : (o.paymentMethod === "cod" ? "Legacy payment" : "Pay by Card");
       const pointsLabel = o.pointsUsed > 0
         ? `${o.pointsUsed} pts (${fmt(o.pointsValue)})${o.pointsDeducted ? "" : " — not yet deducted"}${o.pointsIssue ? ` (Warning: ${escapeHtml(o.pointsIssue)})` : ""}`
         : "—";
