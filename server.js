@@ -364,7 +364,7 @@ async function createAdminSession() {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ADMIN_SESSION_MAX_AGE_MS);
   await db.query(
-    `INSERT INTO admin_sessions (token, expires_at, created_at) VALUES ($1, $2, $3)`,
+    `INSERT INTO admin_sessions (token, expires_at, created_at, otp_verified) VALUES ($1, $2, $3, true)`,
     [token, expiresAt, now]
   );
   return token;
@@ -388,7 +388,7 @@ async function requireAdmin(req, res, next) {
   if (!token) return res.status(401).json({ error: "Admin login required" });
   try {
     const result = await db.query(
-      `SELECT token FROM admin_sessions WHERE token = $1 AND expires_at > NOW() LIMIT 1`,
+      `SELECT token FROM admin_sessions WHERE token = $1 AND expires_at > NOW() AND otp_verified = true LIMIT 1`,
       [token]
     );
     if (!result.rows.length) return res.status(401).json({ error: "Admin login required" });
@@ -909,15 +909,47 @@ app.post("/api/admin/login", adminRateLimit, async (req, res) => {
       return res.status(401).json({ error: ADMIN_GENERIC_AUTH_ERROR });
     }
 
-    const token = await createAdminSession();
-    setAdminSessionCookie(res, token);
-    res.json({ ok: true });
+    const adminPhone = smsLib.normalisePhone(process.env.ADMIN_PHONE || "");
+    const smsConfig = smsLib.loadConfig(process.env);
+    if (!adminPhone || !smsConfig.configured) return res.status(503).json({ error: "Admin phone verification is not configured" });
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+    const challenge = crypto.randomBytes(32).toString("hex");
+    await db.query(`INSERT INTO admin_otp_challenges (id, challenge_hash, otp_hash, expires_at, attempts, last_sent_at)
+      VALUES (1, $1, $2, NOW() + INTERVAL '5 minutes', 0, NOW()) ON CONFLICT (id) DO UPDATE SET
+      challenge_hash=EXCLUDED.challenge_hash, otp_hash=EXCLUDED.otp_hash, expires_at=EXCLUDED.expires_at,
+      attempts=0, resends=0, last_sent_at=NOW()`, [hashAdminToken(challenge), hashAdminToken(code)]);
+    const sent = await smsLib.sendSms({ to: adminPhone, body: `MyShopSwift admin verification code: ${code}. It expires in 5 minutes.`, config: smsConfig });
+    if (!sent.ok) { await db.query(`DELETE FROM admin_otp_challenges WHERE id=1`); return res.status(503).json({ error: "Could not send the verification code" }); }
+    res.json({ requiresOtp: true, challenge, phoneHint: `••••${adminPhone.slice(-4)}`, resendAfter: 60 });
   } catch (error) {
     console.error("[admin-auth] Login failed:", error.message);
     res.status(500).json({ error: "Could not log in — please try again" });
   }
 });
 
+app.post("/api/admin/otp/verify", adminRateLimit, async (req, res) => {
+  const { challenge, code } = req.body || {};
+  if (typeof challenge !== "string" || typeof code !== "string" || !/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the 6-digit code" });
+  try {
+    const row=(await db.query(`SELECT * FROM admin_otp_challenges WHERE id=1 AND challenge_hash=$1 AND expires_at>NOW()`,[hashAdminToken(challenge)])).rows[0];
+    if(!row || row.attempts>=5) return res.status(401).json({error:"Code expired or unavailable. Sign in again."});
+    if(row.otp_hash!==hashAdminToken(code)){ await db.query(`UPDATE admin_otp_challenges SET attempts=attempts+1 WHERE id=1`); return res.status(401).json({error:"Incorrect verification code"}); }
+    const consumed=await db.query(`DELETE FROM admin_otp_challenges WHERE id=1 AND otp_hash=$1 RETURNING id`,[hashAdminToken(code)]);
+    if(!consumed.rows.length) return res.status(401).json({error:"Code already used"});
+    const token=await createAdminSession(); setAdminSessionCookie(res,token); res.json({ok:true});
+  } catch(error){ console.error("[admin-auth] OTP verification failed:",error.message); res.status(500).json({error:"Could not verify the code"}); }
+});
+app.post("/api/admin/otp/resend", adminRateLimit, async (req,res)=>{
+  const {challenge}=req.body||{}; if(typeof challenge!=="string") return res.status(400).json({error:"Sign in again"});
+  try {
+    const row=(await db.query(`SELECT * FROM admin_otp_challenges WHERE id=1 AND challenge_hash=$1 AND expires_at>NOW() AND last_sent_at<NOW()-INTERVAL '60 seconds' AND resends<3`,[hashAdminToken(challenge)])).rows[0];
+    if(!row) return res.status(429).json({error:"Please wait before requesting another code"});
+    const phone=smsLib.normalisePhone(process.env.ADMIN_PHONE||""); const code=String(crypto.randomInt(0,1000000)).padStart(6,"0");
+    const sent=await smsLib.sendSms({to:phone,body:`MyShopSwift admin verification code: ${code}. It expires in 5 minutes.`,config:smsLib.loadConfig(process.env)});
+    if(!sent.ok) return res.status(503).json({error:"Could not send a new code"});
+    await db.query(`UPDATE admin_otp_challenges SET otp_hash=$1,attempts=0,resends=resends+1,expires_at=NOW()+INTERVAL '5 minutes',last_sent_at=NOW() WHERE id=1`,[hashAdminToken(code)]); res.json({ok:true,resendAfter:60});
+  } catch(error){console.error("[admin-auth] OTP resend failed:",error.message);res.status(500).json({error:"Could not send a new code"});}
+});
 app.post("/api/admin/logout", async (req, res) => {
   const token = req.cookies.admin_session;
   if (token) {
@@ -1844,6 +1876,11 @@ app.post("/api/orders/:id/confirm-card-payment", requireAuth, async (req, res) =
   orderSms.notify(order, "payment_confirmed"); // Stripe session verified as paid above
   res.json({ order });
 });
+
+app.get("/api/account/addresses", requireAuth, async (req,res)=>{try{const r=await db.query(`SELECT id,recipient_name AS "recipientName",phone,line1,line2,city,county,postcode,is_default AS "isDefault" FROM customer_addresses WHERE user_id=$1 ORDER BY is_default DESC,created_at DESC`,[req.user.id]);res.json({addresses:r.rows});}catch(e){console.error("[addresses] load failed:",e.message);res.status(500).json({error:"Could not load saved addresses"});}});
+app.post("/api/account/addresses", requireAuth, async (req,res)=>{const b=req.body||{};const fields=["recipientName","phone","line1","city","postcode"];if(fields.some(k=>typeof b[k]!=="string"||!b[k].trim()))return res.status(400).json({error:"Complete the required address fields"});try{const client=await db.connect();try{await client.query("BEGIN");if(b.isDefault)await client.query(`UPDATE customer_addresses SET is_default=false WHERE user_id=$1`,[req.user.id]);const r=await client.query(`INSERT INTO customer_addresses(user_id,recipient_name,phone,line1,line2,city,county,postcode,is_default) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,[req.user.id,b.recipientName.trim().slice(0,160),b.phone.trim().slice(0,30),b.line1.trim().slice(0,200),String(b.line2||"").trim().slice(0,200),b.city.trim().slice(0,100),String(b.county||"").trim().slice(0,100),b.postcode.trim().slice(0,20),!!b.isDefault]);await client.query("COMMIT");res.status(201).json({id:r.rows[0].id});}catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}}catch(e){console.error("[addresses] create failed:",e.message);res.status(500).json({error:"Could not save address"});}});
+app.put("/api/account/addresses/:id", requireAuth, async (req,res)=>{const b=req.body||{};if(["recipientName","phone","line1","city","postcode"].some(k=>typeof b[k]!=="string"||!b[k].trim()))return res.status(400).json({error:"Complete the required address fields"});try{const client=await db.connect();try{await client.query("BEGIN");if(b.isDefault)await client.query(`UPDATE customer_addresses SET is_default=false WHERE user_id=$1`,[req.user.id]);const r=await client.query(`UPDATE customer_addresses SET recipient_name=$1,phone=$2,line1=$3,line2=$4,city=$5,county=$6,postcode=$7,is_default=$8 WHERE id=$9 AND user_id=$10`,[String(b.recipientName||"").trim().slice(0,160),String(b.phone||"").trim().slice(0,30),String(b.line1||"").trim().slice(0,200),String(b.line2||"").trim().slice(0,200),String(b.city||"").trim().slice(0,100),String(b.county||"").trim().slice(0,100),String(b.postcode||"").trim().slice(0,20),!!b.isDefault,req.params.id,req.user.id]);await client.query("COMMIT");res.json({ok:r.rowCount===1});}catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}}catch(e){console.error("[addresses] update failed:",e.message);res.status(500).json({error:"Could not update address"});}});
+app.delete("/api/account/addresses/:id", requireAuth, async (req,res)=>{try{const r=await db.query(`DELETE FROM customer_addresses WHERE id=$1 AND user_id=$2`,[req.params.id,req.user.id]);res.json({ok:r.rowCount===1});}catch(e){console.error("[addresses] delete failed:",e.message);res.status(500).json({error:"Could not delete address"});}});
 
 app.get("/api/orders/mine", requireAuth, async (req, res) => {
   try {

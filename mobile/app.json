@@ -1,0 +1,8 @@
+{
+  "expo": {
+    "name":"MyShopSwift", "slug":"myshopswift", "scheme":"myshopswift", "version":"1.0.0", "orientation":"portrait", "userInterfaceStyle":"light",
+    "ios":{"supportsTablet":false,"bundleIdentifier":"co.uk.myshopswift.app"},
+    "android":{"package":"co.uk.myshopswift.app","adaptiveIcon":{"backgroundColor":"#F7F9FC"}},
+    "plugins":["expo-secure-store",["expo-web-browser",{"experimentalLauncherActivity":false}] ]
+  }
+}

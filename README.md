@@ -13,6 +13,7 @@ myshopswift/
 ├── rewards.js            — rewards/loyalty logic (see below)
 ├── flyers.js              — brand flyers upload + storage logic (see below)
 ├── package.json
+├── mobile/               — Expo / React Native iOS and Android client
 ├── .env.example           — copy to .env and fill in your own values
 └── migrate-*.js            — one-time scripts that copied each table's
                               data from data/*.json into Postgres; not run

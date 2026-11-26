@@ -656,7 +656,7 @@
     <div class="cat-grid" id="catGrid"></div>
   </section>
 
-  <section class="section wrap" id="featured">
+  <section class="section wrap" id="featured" style="display:none">
     <div class="section-head">
       <div>
         <h2>Best-selling products</h2>
@@ -668,7 +668,7 @@
 
   <div class="adire thin"></div>
 
-  <section class="section wrap" id="gadgets">
+  <section class="section wrap" id="gadgets" style="display:none">
     <div class="section-head">
       <div>
         <h2>Gadgets &amp; Accessories</h2>
@@ -694,10 +694,10 @@
     </div>
   </section>
 
-  <section class="section wrap" id="allProducts">
+  <section class="section wrap" id="allProducts" style="display:none">
     <div class="section-head">
       <div>
-        <h2 id="catalogueTitle">All products</h2>
+        <h2 id="catalogueTitle">All products</h2><button type="button" class="btn btn-outline btn-sm" id="backToCategories">← All categories</button>
       </div>
     </div>
     <div class="prod-grid" id="allGrid"></div>
@@ -846,6 +846,7 @@
 
       <div class="auth-tabs">
         <button class="auth-tab active" data-account-tab="orders" type="button">Orders</button>
+        <button class="auth-tab" data-account-tab="addresses" type="button">Addresses</button>
         <button class="auth-tab" data-account-tab="rewards" type="button">Rewards</button>
       </div>
 
@@ -853,6 +854,19 @@
         <div id="myOrders" class="my-orders"></div>
       </div>
 
+      <div id="accountAddressesPanel" style="display:none;padding:10px 0;">
+        <div id="savedAddresses"></div>
+        <h4 id="addressFormTitle">Add a delivery address</h4>
+        <input type="hidden" id="savedAddressId">
+        <div class="field"><label>Recipient name</label><input id="savedRecipient" autocomplete="name"></div>
+        <div class="field"><label>Phone</label><input id="savedPhone" type="tel"></div>
+        <div class="field"><label>Street address</label><input id="savedLine1"></div>
+        <div class="field"><label>Address line 2</label><input id="savedLine2"></div>
+        <div class="field-row"><div class="field"><label>City</label><input id="savedCity"></div><div class="field"><label>County / Region</label><input id="savedCounty"></div></div>
+        <div class="field"><label>Postcode</label><input id="savedPostcode"></div>
+        <label><input type="checkbox" id="savedDefault"> Set as default address</label>
+        <p class="form-error" id="savedAddressError"></p><button class="btn btn-primary" id="saveAddressBtn" type="button">Save address</button>
+      </div>
       <div id="accountRewardsPanel" style="display:none;">
         <div class="rewards-stats">
           <div class="rewards-stat"><span class="rewards-stat-value" id="rwPoints">0</span><span class="rewards-stat-label">Points</span></div>
@@ -968,6 +982,7 @@
       <button class="modal-close" data-close-checkout>&times;</button>
     </div>
     <div class="modal-body">
+      <div class="field" id="savedAddressChooserWrap" style="display:none"><label>Use saved address</label><select id="savedAddressChooser"><option value="">Enter address manually</option></select></div>
       <div class="field"><label>Delivery address line</label><input type="text" id="addrLine1" placeholder="123 High Street"></div>
       <div class="field-row">
         <div class="field"><label>City</label><input type="text" id="addrCity" placeholder="London"></div>
@@ -1148,7 +1163,6 @@
   // ---------- Render: category grid ----------
   const catGrid = document.getElementById("catGrid");
   CATEGORIES.forEach(c=>{
-    const count = PRODUCTS.filter(p=>p.cat===c.name).length;
     const div = document.createElement("div");
     div.className = "cat-card" + (c.featured ? " gadgets" : "") + (c.image ? " has-image" : "");
     div.innerHTML = c.image
@@ -1156,15 +1170,15 @@
         <img src="${escapeHtml(cdnImg(c.image, 640))}" alt="${escapeHtml(c.name)}">
         <div>
           <h3>${escapeHtml(c.name)}</h3>
-          <span class="cat-count">${count} items</span>
         </div>`
       : `
         <span class="cat-icon">${c.icon}</span>
         <div>
           <h3>${escapeHtml(c.name)}</h3>
-          <span class="cat-count">${count} items</span>
         </div>`;
+    div.setAttribute("role", "link"); div.tabIndex = 0;
     div.addEventListener("click", ()=>filterAndScroll(c.name));
+    div.addEventListener("keydown", e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();filterAndScroll(c.name);}});
     catGrid.appendChild(div);
   });
 
@@ -1261,12 +1275,14 @@
     }
     list.forEach(p=>allGrid.appendChild(productCard(p)));
   }
-  renderAll();
-
+  document.getElementById("backToCategories").addEventListener("click",()=>{document.getElementById("allProducts").style.display="none";history.replaceState(null,"",location.pathname);document.getElementById("catGrid").closest(".section").scrollIntoView({behavior:"smooth"});});
   function filterAndScroll(catName){
-    renderAll(catName);
-    document.getElementById("allProducts").scrollIntoView({behavior:"smooth", block:"start"});
+    document.getElementById("allProducts").style.display="block"; renderAll(catName);
+    history.replaceState(null,"",`#category=${encodeURIComponent(catName)}`);
+    document.getElementById("allProducts").scrollIntoView({behavior:"smooth",block:"start"});
   }
+  const initialCategory=new URLSearchParams(location.hash.slice(1)).get("category");
+  if(initialCategory&&CATEGORIES.some(c=>c.name===initialCategory)){document.getElementById("allProducts").style.display="block";renderAll(initialCategory);}
 
   document.querySelectorAll('[data-cat]').forEach(el=>{
     el.addEventListener("click", (e)=>{
@@ -1283,6 +1299,8 @@
   function runSearch(){
     const val = document.getElementById("searchInput").value.trim();
     if(!val) return;
+    document.getElementById("allProducts").style.display="block";
+    history.replaceState(null,"",`#search=${encodeURIComponent(val)}`);
     renderAll(null, val);
     document.getElementById("allProducts").scrollIntoView({behavior:"smooth", block:"start"});
   }
@@ -1640,12 +1658,20 @@
     tab.addEventListener("click", ()=>{
       document.querySelectorAll("[data-account-tab]").forEach(t=>t.classList.remove("active"));
       tab.classList.add("active");
-      const showRewards = tab.dataset.accountTab === "rewards";
-      document.getElementById("accountOrdersPanel").style.display = showRewards ? "none" : "block";
+      const showRewards = tab.dataset.accountTab === "rewards", showAddresses=tab.dataset.accountTab==="addresses";
+      document.getElementById("accountOrdersPanel").style.display = !showRewards&&!showAddresses ? "block" : "none";
       document.getElementById("accountRewardsPanel").style.display = showRewards ? "block" : "none";
-      if(showRewards) loadRewards();
+      document.getElementById("accountAddressesPanel").style.display = showAddresses ? "block" : "none";
+      if(showRewards) loadRewards(); if(showAddresses) loadSavedAddresses();
     });
   });
+
+
+  let savedAddressesCache=[];
+  async function loadSavedAddresses(){const box=document.getElementById("savedAddresses");box.textContent="Loading…";try{const r=await fetch("/api/account/addresses");const d=await r.json();savedAddressesCache=d.addresses||[];box.innerHTML=savedAddressesCache.length?savedAddressesCache.map(a=>'<div class="order-row" style="display:block;padding:10px;margin:8px 0"><b>'+escapeHtml(a.recipientName)+(a.isDefault?' · Default':'')+'</b><br>'+escapeHtml(a.line1)+' '+escapeHtml(a.line2||'')+', '+escapeHtml(a.city)+' '+escapeHtml(a.postcode)+'<br>'+escapeHtml(a.phone)+'<div style="margin-top:6px"><button type="button" class="btn btn-outline btn-sm" data-edit-address="'+a.id+'">Edit</button> <button type="button" class="btn btn-outline btn-sm" data-delete-address="'+a.id+'">Delete</button></div></div>').join(''):'<p>No saved addresses yet.</p>';const sel=document.getElementById("savedAddressChooser");sel.innerHTML='<option value="">Enter address manually</option>'+savedAddressesCache.map(a=>'<option value="'+a.id+'">'+escapeHtml(a.line1+', '+a.city+' '+a.postcode+(a.isDefault?' (Default)':''))+'</option>').join('');document.getElementById("savedAddressChooserWrap").style.display=savedAddressesCache.length?'block':'none';}catch(_){box.textContent="Could not load saved addresses.";}}
+  document.getElementById("saveAddressBtn").addEventListener("click",async()=>{const e=document.getElementById("savedAddressError");e.textContent="";const id=document.getElementById("savedAddressId").value;const b={recipientName:document.getElementById("savedRecipient").value,phone:document.getElementById("savedPhone").value,line1:document.getElementById("savedLine1").value,line2:document.getElementById("savedLine2").value,city:document.getElementById("savedCity").value,county:document.getElementById("savedCounty").value,postcode:document.getElementById("savedPostcode").value,isDefault:document.getElementById("savedDefault").checked};try{const r=await fetch(id?'/api/account/addresses/'+encodeURIComponent(id):'/api/account/addresses',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});const d=await r.json();if(!r.ok){e.textContent=d.error||'Could not save address';return;}document.getElementById("savedAddressId").value="";document.querySelectorAll('#accountAddressesPanel input:not([type=checkbox]):not([type=hidden])').forEach(x=>x.value="");document.getElementById("savedDefault").checked=false;await loadSavedAddresses();}catch(_){e.textContent='Network error — try again';}});
+  document.getElementById("savedAddresses").addEventListener("click",async e=>{const del=e.target.closest('[data-delete-address]'),edit=e.target.closest('[data-edit-address]');if(del){await fetch('/api/account/addresses/'+encodeURIComponent(del.dataset.deleteAddress),{method:'DELETE'});loadSavedAddresses();}if(edit){const a=savedAddressesCache.find(x=>x.id===edit.dataset.editAddress);if(!a)return;document.getElementById("savedAddressId").value=a.id;document.getElementById("savedRecipient").value=a.recipientName;document.getElementById("savedPhone").value=a.phone;document.getElementById("savedLine1").value=a.line1;document.getElementById("savedLine2").value=a.line2||'';document.getElementById("savedCity").value=a.city;document.getElementById("savedCounty").value=a.county||'';document.getElementById("savedPostcode").value=a.postcode;document.getElementById("savedDefault").checked=a.isDefault;}});
+  document.getElementById("savedAddressChooser").addEventListener("change",e=>{const a=savedAddressesCache.find(x=>x.id===e.target.value);if(!a)return;document.getElementById("addrLine1").value=a.line1+(a.line2?', '+a.line2:'');document.getElementById("addrCity").value=a.city;document.getElementById("addrPostcode").value=a.postcode;document.getElementById("addrPhone").value=a.phone;});
 
   async function loadRewards(){
     try{
@@ -1737,6 +1763,7 @@
     }
   }
 
+  document.getElementById("myOrders").addEventListener("click",e=>{const b=e.target.closest(".order-details-toggle");if(!b)return;const panel=document.getElementById("details-"+CSS.escape(b.dataset.details));if(panel)panel.style.display=panel.style.display==="none"?"block":"none";});
   async function loadMyOrders(){
     const box = document.getElementById("myOrders");
     box.innerHTML = "Loading…";
@@ -1749,8 +1776,8 @@
       // the oldest orders at the top.
       box.innerHTML = orders.map(o => `
         <div class="order-row" data-order-id="${escapeHtml(o.id)}" style="flex-wrap:wrap;gap:4px 10px;${new URLSearchParams(window.location.search).get("order") === o.id ? "border:2px solid var(--rust);background:#fff8f1;" : ""}">
-          <span>${new Date(o.createdAt).toLocaleDateString("en-GB")} — ${fmt(o.total)} — ${window.MSSWhatsApp.ref(o.id)}</span>
-          <span class="status">${o.status === "shipped" ? "On the way to you" : o.status.replace("_"," ")}</span>
+          <span><b>${window.MSSWhatsApp.ref(o.id)}</b> · ${new Date(o.createdAt).toLocaleDateString("en-GB")} · ${fmt(o.total)} · ${o.paymentMethod === "cod" ? "Payment not recorded" : (o.status === "awaiting_payment" ? "Payment pending" : "Payment confirmed")}</span>
+          <span class="status">${o.status === "shipped" ? "On the way to you" : o.status.replace("_"," ")}</span><button type="button" class="ci-edit-options order-details-toggle" data-details="${escapeHtml(o.id)}">View details & tracking</button><div class="order-details" id="details-${escapeHtml(o.id)}" style="display:none;flex-basis:100%;padding:8px 0;"><b>Order progress</b><p>Placed ✓ · Payment ${o.paymentMethod === "cod" ? "not recorded" : (o.status === "awaiting_payment" ? "pending" : "confirmed")} · ${escapeHtml(o.status.replace("_"," "))}</p>${o.items.map(i=>{const product=PRODUCTS.find(p=>String(p.id)===String(i.productId));return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0;">${product&&product.image?`<img src="${escapeHtml(cdnImg(product.image,120))}" alt="" style="width:38px;height:38px;object-fit:cover;border-radius:4px;">`:""}<span>${escapeHtml(i.name)} × ${i.qty} — ${fmt(i.price)}</span></div>`}).join("")}</div>
           <a href="${window.MSSWhatsApp.link(o.id)}" target="_blank" rel="noopener noreferrer" style="flex-basis:100%;font-size:11.5px;color:var(--indigo);text-decoration:underline;">Message us on WhatsApp about this order</a>
         </div>`).join("");
       const targetOrder = new URLSearchParams(window.location.search).get("order");

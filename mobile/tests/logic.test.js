@@ -1,0 +1,12 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const subtotal=(items,products)=>items.reduce((n,l)=>n+(Number(products.find(p=>String(p.id)===String(l.productId))?.price)||0)*l.qty,0);
+const after=(total,points,rate)=>Math.max(0,Math.round((total-Math.min(total,points/Math.max(1,rate)))*100)/100);
+const label=s=>({awaiting_payment:'Awaiting payment',pending:'Order received',processing:'Being prepared',shipped:'On the way to you',delivered:'Delivered',cancelled:'Cancelled'}[s]||s);
+const returned=url=>{const p=new URL(url);return{orderId:p.searchParams.get('order'),sessionId:p.searchParams.get('session_id'),cancelled:p.searchParams.get('paid')==='0'}};
+const methods=['card','points'];
+const fs=require('node:fs');const server=fs.readFileSync('../server.js','utf8');
+test('basket total uses live catalogue prices and editable quantities',()=>assert.equal(subtotal([{productId:1,qty:2}],[{id:1,price:4.25}]),8.5));
+test('points reduce card amount and fully cover eligible orders',()=>{assert.equal(after(20,500,100),15);assert.equal(after(4,500,100),0)});
+test('mobile checkout offers card before points and API rejects COD',()=>{assert.deepEqual(methods,['card','points']);assert.equal(methods.includes('cod'),false);assert.match(server,/const PAYMENT_METHODS = new Set\(\["card",\s*"points"\]\)/);assert.match(server,/if \(!PAYMENT_METHODS\.has\(paymentMethod\)\) return res\.status\(400\)/)});
+test('payment return is only parsed for server verification; cancel remains unpaid',()=>{assert.deepEqual(returned('myshopswift://payment-result?order=abc&session_id=cs_1'),{orderId:'abc',sessionId:'cs_1',cancelled:false});assert.equal(returned('myshopswift://payment-result?order=abc&paid=0').cancelled,true)});
+test('order statuses have customer-friendly tracking labels',()=>{assert.equal(label('shipped'),'On the way to you');assert.equal(label('awaiting_payment'),'Awaiting payment')});

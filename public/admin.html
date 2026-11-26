@@ -238,6 +238,7 @@
       </div>
     </div>
 
+    <div class="auth-view" id="authView-otp"><h1>Verify your phone</h1><p class="lede" id="otpHint">Enter the code sent to the registered admin phone.</p><div class="field"><label>6-digit code</label><input id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><p class="form-error" id="otpError"></p><button class="btn btn-dark" id="otpVerifyBtn">Verify and continue</button><button class="btn btn-ghost" id="otpResendBtn" disabled>Resend code (60s)</button><a class="back-link" id="otpBackLink">Back to login</a></div>
     <!-- First-time setup request -->
     <div class="auth-view" id="authView-generate">
       <h1>First-time setup</h1>
@@ -677,6 +678,11 @@
     return res;
   };
 
+  let otpChallenge=null,otpTimer=null;
+  function startOtpCooldown(seconds){const b=document.getElementById("otpResendBtn");clearInterval(otpTimer);let left=seconds;b.disabled=true;b.textContent="Resend code ("+left+"s)";otpTimer=setInterval(()=>{left--;if(left<=0){clearInterval(otpTimer);b.disabled=false;b.textContent="Resend code";}else b.textContent="Resend code ("+left+"s)";},1000);}
+  document.getElementById("otpBackLink").addEventListener("click",()=>showAuthView("login"));
+  document.getElementById("otpVerifyBtn").addEventListener("click",async()=>{const e=document.getElementById("otpError");e.textContent="";try{const r=await fetch("/api/admin/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({challenge:otpChallenge,code:document.getElementById("otpCode").value.trim()})});const d=await r.json();if(!r.ok){e.textContent=d.error||"Could not verify code";return;}showApp();}catch(_){e.textContent="Network error — please try again";}});
+  document.getElementById("otpResendBtn").addEventListener("click",async()=>{const e=document.getElementById("otpError");e.textContent="";try{const r=await fetch("/api/admin/otp/resend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({challenge:otpChallenge})});const d=await r.json();if(!r.ok){e.textContent=d.error||"Could not resend code";return;}startOtpCooldown(d.resendAfter||60);}catch(_){e.textContent="Network error — please try again";}});
   document.getElementById("loginBtn").addEventListener("click", async ()=>{
     const errEl = document.getElementById("loginError");
     errEl.textContent = "";
@@ -693,6 +699,7 @@
       const data = await res.json();
       if(!res.ok){ errEl.textContent = data.error || "Could not log in"; return; }
       document.getElementById("loginPassword").value = "";
+      if(data.requiresOtp){otpChallenge=data.challenge;document.getElementById("otpHint").textContent="Enter the code sent to "+(data.phoneHint||"the registered phone")+".";document.getElementById("otpError").textContent="";document.getElementById("otpCode").value="";showAuthView("otp");startOtpCooldown(data.resendAfter||60);return;}
       showApp();
     }catch(e){
       errEl.textContent = "Network error — please try again";
@@ -1318,7 +1325,9 @@
       const tr = document.createElement("tr");
       tr.dataset.orderId = o.id;
       const itemsSummary = o.items.map(i=>{
-        const bits = [`<div>${i.qty}× ${escapeHtml(i.name)}</div>`];
+        const product=PRODUCTS.find(p=>String(p.id)===String(i.productId));
+        const thumb=product&&product.image?`<img src="${escapeHtml(cdnImg(product.image,120))}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:6px;">`:"";
+        const bits = [`<div>${thumb}${i.qty}× ${escapeHtml(i.name)}</div>`];
         if(i.brand) bits.push(`<div style="font-size:10.5px;color:#444;">Brand: ${escapeHtml(i.brand)}</div>`);
         if(i.replacement){
           bits.push(`<div style="font-size:10.5px;color:var(--rust);">If unavailable: ${escapeHtml(REPLACEMENT_LABELS[i.replacement] || i.replacement)}</div>`);
@@ -1338,7 +1347,7 @@
         ? fmt(o.deliveryFee)
         : `FREE${o.deliveryFreeReason ? `<div style="font-size:10.5px;color:#888;">${escapeHtml(o.deliveryFreeReason)}</div>` : ""}`;
       tr.innerHTML = `
-        <td data-label="Date">${new Date(o.createdAt).toLocaleString("en-GB")}<br><span class="mono" style="font-size:11px;color:#888;" title="Order reference (what customers quote, e.g. on WhatsApp)">#${escapeHtml(o.id.slice(0,8))}</span></td>
+        <td data-label="Date">${new Date(o.createdAt).toLocaleString("en-GB")}<br><button class="btn btn-outline btn-sm order-pdf" data-order="${escapeHtml(o.id)}">Download PDF</button><br><span class="mono" style="font-size:11px;color:#888;" title="Order reference (what customers quote, e.g. on WhatsApp)">#${escapeHtml(o.id.slice(0,8))}</span></td>
         <td data-label="Customer"><strong>${escapeHtml(o.customerName)}</strong><br><span class="mono" style="font-size:11px;color:#888;">${escapeHtml(o.customerEmail)}</span></td>
         <td data-label="Phone">${o.phone ? escapeHtml(o.phone) : "—"}</td>
         <td data-label="Items" style="max-width:260px;">${itemsSummary}</td>
@@ -1373,6 +1382,13 @@
     });
   }
 
+  document.getElementById("ordersBody").addEventListener("click",e=>{
+    const b=e.target.closest(".order-pdf");if(!b)return;const o=(window.__orders||[]).find(x=>String(x.id)===b.dataset.order);if(!o)return;
+    const rowHtml=o.items.map(i=>{const p=PRODUCTS.find(x=>String(x.id)===String(i.productId));const img=p&&p.image?'<img src="'+escapeHtml(cdnImg(p.image,160))+'" style="width:48px;height:48px;object-fit:cover">':'';return '<tr><td>'+img+'</td><td>'+escapeHtml(i.name)+'</td><td>'+i.qty+'</td><td>£'+Number(i.price).toFixed(2)+'</td><td>£'+(i.qty*i.price).toFixed(2)+'</td></tr>';}).join('');
+    const w=window.open('','_blank');if(!w){showToast('Allow pop-ups to download this order');return;}
+    const address=o.address||{};const html='<!doctype html><html><head><title>MyShopSwift Order '+escapeHtml(o.id)+'</title><style>body{font:14px Arial;color:#252525;margin:40px}header{display:flex;justify-content:space-between;border-bottom:2px solid #a5482d;padding-bottom:12px}h1{color:#a5482d}table{width:100%;border-collapse:collapse;margin:24px 0}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}.sum{text-align:right;line-height:1.8}@media print{button{display:none}}</style></head><body><header><div><img src="https://myshopswift.co.uk/assets/logo-cropped.jpg" style="height:52px;object-fit:contain"><div>Order summary</div></div><div><b>Order #'+escapeHtml(o.id)+'</b><br>'+new Date(o.createdAt).toLocaleString('en-GB')+'</div></header><h2>Customer</h2><p>'+escapeHtml(o.customerName)+' · '+escapeHtml(o.phone||'')+' · '+escapeHtml(o.customerEmail)+'</p><p>'+escapeHtml(address.line1||'')+' '+escapeHtml(address.line2||'')+'<br>'+escapeHtml(address.city||'')+' '+escapeHtml(address.county||'')+' '+escapeHtml(address.postcode||'')+' '+escapeHtml(address.country||'')+'</p><table><thead><tr><th></th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>'+rowHtml+'</tbody></table><div class="sum">Subtotal: £'+Number(o.subtotal||o.total).toFixed(2)+'<br>Delivery: £'+Number(o.deliveryFee||0).toFixed(2)+(o.pointsValue>0?'<br>Points discount: −£'+Number(o.pointsValue).toFixed(2):'')+'<br><b>Total: £'+Number(o.total).toFixed(2)+'</b><br>Payment: '+escapeHtml(o.paymentMethod||'')+'<br>Payment status: '+(o.status==='awaiting_payment'?'Pending':(o.paymentMethod==='cod'?'Not recorded':'Confirmed'))+'<br>Status: '+escapeHtml(o.status||'')+'</div><p>Thank you for shopping with MyShopSwift.</p><button onclick="window.print()">Print / Save as PDF</button></body></html>';
+    w.document.open();w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);
+  });
   document.getElementById("ordersBody").addEventListener("click", async (e)=>{
     const btn = e.target.closest(".sms-retry");
     if(!btn) return;
