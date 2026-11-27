@@ -20,7 +20,7 @@ function rowToNotification(row) {
   return {
     id: row.id,
     type: row.type,
-    title: row.title,
+    title: String(row.title || "").replace(/(order)\s+#(?=[a-f0-9]{8}\b)/gi, "$1 "),
     // Keep historical notification records intact while hiding retired
     // payment wording anywhere the dashboard displays or streams them.
     message: String(row.message || "").replace(/cash on delivery|pay on delivery/gi, "Legacy payment"),

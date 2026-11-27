@@ -123,23 +123,34 @@
 <script>
 (function(){
   const STATUS_LABELS = {
-    pending: "Pending", awaiting_payment: "Awaiting payment", processing: "Processing",
-    shipped: "On the way to you", delivered: "Delivered", cancelled: "Cancelled"
+    pending: "Order placed", awaiting_payment: "Awaiting payment", processing: "Processing",
+    shipped: "Your order is on the way", delivered: "Delivered", cancelled: "Cancelled"
   };
   const fmt = n => "£" + Number(n).toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+  const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   let myOrders = [];
 
   function renderOrderCard(o){
     const statusClass = o.status === "delivered" ? "delivered" : (o.status === "cancelled" ? "cancelled" : "");
     const card = document.getElementById("orderStatusCard");
     card.style.display = "";
+    const steps = o.status === "cancelled" ? [{label:"Order placed",done:true},{label:"Cancelled",current:true}] :
+      (o.status === "awaiting_payment" ? ["Order placed","Awaiting payment"] : o.status === "pending" ? ["Order placed"] : ["Order placed","Processing"])
+        .map((label,index,all)=>({label,done:index<all.length-1,current:index===all.length-1}));
+    if (o.status === "shipped" || o.status === "delivered") steps.push({label:"Dispatched",done:true},{label:"Your order is on the way",done:o.status==="delivered",current:o.status==="shipped"});
+    if (o.status === "delivered") steps.push({label:"Delivered",done:true,current:true});
+    const address = o.address || {};
+    const payment = o.paymentMethod === "card" ? "Card" : o.paymentMethod === "points" ? "Reward points" : "Pay on delivery";
+    const paymentStatus = o.status === "awaiting_payment" ? "Awaiting payment" : o.paymentMethod === "cod" ? "Pay on delivery" : o.status === "cancelled" ? "Status unavailable" : "Paid/confirmed";
+    const items = (o.items || []).map(i => `<div class="order-detail-item">${i.image ? `<img src="${escapeHtml(i.image)}" alt="${escapeHtml(i.name)}" loading="lazy">` : ""}<div><strong>${escapeHtml(i.name)}</strong><small>Qty ${Number(i.qty)||0} · ${fmt(i.price)} each${i.brand ? " · "+escapeHtml(i.brand) : ""}</small>${i.note ? `<small>Item note: ${escapeHtml(i.note)}</small>` : ""}</div><b>${fmt(Number(i.price||0)*Number(i.qty||0))}</b></div>`).join("");
     card.innerHTML = `
-      <div class="order-status-row"><span>Order number</span><span class="mono">${o.id.slice(0,8)}</span></div>
+      <div class="order-status-row"><span>Order reference</span><span class="mono">${o.id.slice(0,8)}</span></div>
       <div class="order-status-row"><span>Placed</span><span>${new Date(o.createdAt).toLocaleString("en-GB")}</span></div>
       <div class="order-status-row"><span>Status</span><span class="status-pill ${statusClass}">${STATUS_LABELS[o.status] || o.status}</span></div>
-      <div class="order-status-row"><span>Items</span><span>${o.items.reduce((s,i)=>s+i.qty,0)}</span></div>
-      <div class="order-status-row"><span>Total</span><span>${fmt(o.total)}</span></div>
-      <div class="order-status-row"><span>Payment</span><span>${o.paymentMethod === "points" ? "Pay by Point" : (o.paymentMethod === "cod" ? "Legacy payment" : "Pay by Card")}</span></div>
+      <div class="order-detail-grid"><section><h3>Order tracking</h3><ol class="order-timeline">${steps.map(step=>`<li class="${step.done?"done":""} ${step.current?"current":""}"><span>${step.done?"✓":""}</span>${step.label}</li>`).join("")}</ol></section><section><h3>Delivery address</h3><p>${escapeHtml(o.customerName||"")}<br>${escapeHtml(o.phone||"")}<br>${escapeHtml([address.line1,address.line2,address.city,address.county,address.postcode,address.country].filter(Boolean).join(", "))}</p></section></div>
+      <h3>Items</h3>${items || "<p>Item details are unavailable.</p>"}
+      <div class="order-detail-grid"><section><h3>Payment</h3><p>${escapeHtml(payment)} · ${escapeHtml(paymentStatus)}</p></section>${o.orderNote ? `<section><h3>Order note</h3><p>${escapeHtml(o.orderNote)}</p></section>` : ""}</div>
+      <div class="order-detail-totals"><span>Subtotal</span><b>${fmt(o.subtotal ?? o.total)}</b><span>Delivery</span><b>${Number(o.deliveryFee||0)===0?"Free":fmt(o.deliveryFee)}</b>${Number(o.pointsValue)>0?`<span>Points used (${Number(o.pointsUsed)||0})</span><b>−${fmt(o.pointsValue)}</b>`:""}<strong>Order total</strong><strong>${fmt(o.total)}</strong>${Number(o.amountDue??o.total)<Number(o.total)?`<strong>Amount due</strong><strong>${fmt(o.amountDue)}</strong>`:""}</div>
       <div style="margin-top:14px;">
         <a class="btn btn-outline" href="${window.MSSWhatsApp.link(o.id)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Message us on WhatsApp about this order</a>
         <p style="font-size:12.5px;color:#666;margin:8px 0 0;">Opens a chat with our team. It isn't automatic live tracking — the status above is the latest on your account.</p>
@@ -165,8 +176,7 @@
         </div>`).join("");
       list.querySelectorAll("[data-order]").forEach(row=>{
         row.addEventListener("click", ()=>{
-          const o = myOrders.find(x=>x.id===row.dataset.order);
-          if(o) renderOrderCard(o);
+          loadOrderDetails(row.dataset.order);
         });
       });
     }catch(e){
@@ -179,15 +189,25 @@
     errEl.textContent = "";
     const query = document.getElementById("orderNumberInput").value.trim().toLowerCase();
     if(!query){ errEl.textContent = "Enter your order number"; return; }
-    const match = myOrders.find(o => o.id.toLowerCase() === query || o.id.toLowerCase().startsWith(query));
+    const match = myOrders.find(o => o.id.toLowerCase() === query || o.id.toLowerCase().startsWith(query) || o.id.slice(0,8).toLowerCase() === query);
     if(!match){ errEl.textContent = "No matching order found on your account"; return; }
-    renderOrderCard(match);
+    loadOrderDetails(match.id);
   });
+
+  let activeOrderId = null;
+  async function loadOrderDetails(id){
+    activeOrderId = id;
+    const card = document.getElementById("orderStatusCard"); card.style.display=""; card.textContent="Loading order details…";
+    try { const res=await fetch(`/api/orders/${encodeURIComponent(id)}`); const data=await res.json(); if(!res.ok) throw new Error(data.error||"Could not load this order"); if(activeOrderId===id) renderOrderCard(data.order); }
+    catch(error){ if(activeOrderId===id) card.textContent=error.message||"Could not load this order. Please try again."; }
+  }
+  const requestedOrder = new URLSearchParams(window.location.search).get("order");
 
   fetch("/api/auth/me").then(r=>r.json()).then(data=>{
     if(data.user){
       document.getElementById("trackSignedIn").style.display = "";
-      loadOrders();
+      loadOrders().then(()=>{if(requestedOrder){const found=myOrders.find(o=>String(o.id)===requestedOrder);if(found)loadOrderDetails(found.id);}});
+      window.setInterval(()=>{if(activeOrderId&&!document.hidden)loadOrderDetails(activeOrderId);},30000);
     } else {
       document.getElementById("trackSignedOut").style.display = "";
     }
@@ -197,5 +217,6 @@
 })();
 </script>
 
+<script src="assets/cookie-consent.js" defer></script>
 </body>
 </html>

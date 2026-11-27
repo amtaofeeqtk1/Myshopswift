@@ -170,6 +170,7 @@ function createToolRunner({ loadCatalogue, turn }) {
     const cat = await loadCatalogue({ fresh: true });
     const p = catalogue.findProduct(cat, args.product_id);
     if (!p) return { ok: false, code: "PRODUCT_NOT_FOUND", error: "That product is not currently in the catalogue." };
+    if (p.available === false) return { ok: false, code: "PRODUCT_UNAVAILABLE", error: `${p.name} is sold out and cannot be added right now.` };
     if (typeof p.price !== "number" || !Number.isFinite(p.price) || p.price < 0) {
       return { ok: false, code: "PRODUCT_UNAVAILABLE", error: "That product cannot be added right now." };
     }

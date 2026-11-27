@@ -54,7 +54,7 @@ function rowToTransaction(row) {
     userId: row.user_id,
     points: Number(row.points),
     type: row.type,
-    reason: row.reason || "",
+    reason: String(row.reason || "").replace(/(order)\s+#/gi, "$1 "),
     orderId: row.order_id,
     referralId: row.referral_id,
     refId: row.ref_id,
@@ -339,7 +339,7 @@ async function processQualifyingPurchase(order, settings) {
   if (points > 0) {
     await awardPoints({
       userId: order.userId, type: "purchase", points,
-      reason: `Order #${order.id.slice(0, 8)}`, orderId: order.id, refId: order.id
+      reason: `Order ${order.id.slice(0, 8)}`, orderId: order.id, refId: order.id
     });
   }
 

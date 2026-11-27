@@ -96,6 +96,7 @@
   // ---------- product card ----------
   function buildCard(p){
     var qty = 1;
+    var soldOut = p.available === false;
     var thumb = el("div", { "class": "msa-thumb" });
     if (p.image){
       var img = el("img", { alt: p.name, loading: "lazy" });
@@ -103,6 +104,7 @@
       img.addEventListener("error", function(){ img.remove(); });
       thumb.appendChild(img);
     }
+    if (soldOut) thumb.appendChild(el("span", { "class":"msa-sold-out", text:"SOLD OUT" }));
 
     var price = el("div", { "class": "msa-price", text: fmt(p.price) });
     if (p.oldPrice) price.appendChild(el("s", { text: fmt(p.oldPrice) }));
@@ -121,7 +123,8 @@
     minus.addEventListener("click", function(){ if (qty > 1){ qty--; qtyVal.textContent = qty; } });
     plus.addEventListener("click", function(){ if (qty < 50){ qty++; qtyVal.textContent = qty; } });
 
-    var add = el("button", { "class": "msa-add", type: "button", text: "Add to Cart" });
+    var add = el("button", { "class": "msa-add", type: "button", text: soldOut ? "Sold Out" : "Add to Cart" });
+    add.disabled = soldOut;
     var note = el("div", { "class": "msa-card-note", role: "status" });
 
     add.addEventListener("click", function(){

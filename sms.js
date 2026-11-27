@@ -133,7 +133,7 @@ function normalisePhone(raw) {
 // page) is the first 8 characters of the order id. SMS and WhatsApp use the
 // same one so it always matches the database record.
 function orderRef(orderId) {
-  return "#" + String(orderId).slice(0, 8);
+  return String(orderId).slice(0, 8);
 }
 
 // Plain GSM-7 characters only (no £, curly quotes or dashes) so each message
@@ -142,7 +142,7 @@ const SMS_TEMPLATES = {
   order_placed: ref => `MyShopSwift: Your order ${ref} has been successfully received. Thank you for shopping with us!`,
   payment_confirmed: ref => `MyShopSwift: Payment for order ${ref} has been confirmed.`,
   processing: ref => `MyShopSwift: Your order ${ref} is now being processed.`,
-  shipped: ref => `MyShopSwift: Your order ${ref} has been dispatched and is on its way!`,
+  shipped: ref => `MyShopSwift: Your order ${ref} is on the way.`,
   delivered: ref => `MyShopSwift: Your order ${ref} has been successfully delivered. Thank you for shopping with MyShopSwift!`,
   cancelled: ref => `MyShopSwift: Your order ${ref} has been cancelled. Please contact our support team if you need assistance.`
 };

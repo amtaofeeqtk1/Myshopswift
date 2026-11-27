@@ -40,7 +40,7 @@ Object.assign(process.env, {
 for (const k of ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "OPENAI_API_KEY", "CONTACT_INBOX_EMAIL"]) delete process.env[k];
 
 // ---------------- fakes ----------------
-const store = { orders: new Map(), smsRows: [], notifications: new Map(), schemaEnsured: false, breakOrderReads: false };
+const store = { orders: new Map(), smsRows: [], notifications: new Map(), schemaEnsured: false, breakOrderReads: false, productAvailable: true, sellOutAtLock: false };
 const USER = { id: "u1", name: "Test Customer", email: "c@example.com", password_hash: bcrypt.hashSync("password123", 4), phone: "", email_verified: true, created_at: new Date() };
 const OTHER = { id: "u2", name: "Other Person", email: "o@example.com", password_hash: "x", phone: "", email_verified: true, created_at: new Date() };
 const SESSIONS = { usertoken: USER, othertoken: OTHER };
@@ -63,9 +63,18 @@ class FakePool {
     if (q.startsWith("UPDATE password_resets") || q.startsWith("INSERT INTO password_resets")) return { rows: [] };
     if (q.startsWith("DELETE FROM sessions WHERE user_id")) { store.sessionsClearedFor = params[0]; return { rows: [] }; }
     if (q.startsWith("UPDATE users SET phone")) return { rows: [] };
+    if (q.startsWith("SELECT * FROM categories")) return { rows: [{ id:"grocery", name:"grocery", icon:"", image:"" }] };
 
+    if (q === "BEGIN" || q === "COMMIT" || q === "ROLLBACK") return { rows: [] };
+    if (q.startsWith("SELECT id, name, available FROM products WHERE id = ANY")) {
+      if(store.sellOutAtLock){store.productAvailable=false;store.sellOutAtLock=false;}
+      return params[0].includes(1) ? { rows: [{id:1,name:"Rice",available:store.productAvailable}] } : { rows: [] };
+    }
+    if (q.startsWith("UPDATE products SET available = $1 WHERE id = $2 RETURNING id, available")) {
+      if(params[1]!==1)return {rows:[]};store.productAvailable=params[0];return {rows:[{id:1,available:store.productAvailable}]};
+    }
     if (q.startsWith("SELECT * FROM products")) {
-      return { rows: [{ id: 1, name: "Rice", category: "grocery", price: "10.00", old_price: null, icon: "", tag: "", image: "", description: "", brands: [] }] };
+      return { rows: [{ id: 1, name: "Rice", category: "grocery", price: "10.00", old_price: null, icon: "", tag: "", image: "", description: "", brands: [], available:store.productAvailable }] };
     }
     if (q.startsWith("SELECT COUNT(*)::int AS n FROM orders")) return { rows: [{ n: 2 }] };
 
@@ -173,7 +182,7 @@ const other = { cookie: "session=othertoken" };
 const admin = { cookie: "admin_session=admintoken" };
 const GOOD_ADDRESS = { line1: "1 High Street", city: "London", postcode: "E1 6AN" };
 const placeOrder = (over = {}, who = user) => http("POST", "/api/orders", { ...who, body: { items: [{ productId: 1, qty: 1 }], paymentMethod: "card", address: GOOD_ADDRESS, phone: "07739 320205", ...over } });
-const twilioBodiesFor = orderId => twilio.calls.filter(c => c.params.get("Body").includes("#" + orderId.slice(0, 8))).map(c => c.params.get("Body"));
+const twilioBodiesFor = orderId => twilio.calls.filter(c => c.params.get("Body").includes(orderId.slice(0, 8))).map(c => c.params.get("Body"));
 const smsFor = (orderId, event) => store.smsRows.filter(r => r.order_id === orderId && (!event || r.event === event));
 const twilioSig = (url, params) => crypto.createHmac("sha1", process.env.TWILIO_AUTH_TOKEN).update(url + Object.keys(params).sort().map(k => k + params[k]).join("")).digest("base64");
 
@@ -240,7 +249,7 @@ async function step(name, fn) {
       assert.equal(c.params.get("From"), "MyShopSwift");
       assert.equal(c.params.has("MessagingServiceSid"), false);
     }
-    assert.equal(c.params.get("Body"), `MyShopSwift: Your order #${order1.id.slice(0, 8)} has been successfully received. Thank you for shopping with us!`);
+    assert.equal(c.params.get("Body"), `MyShopSwift: Your order ${order1.id.slice(0, 8)} has been successfully received. Thank you for shopping with us!`);
     assert.equal(c.params.get("StatusCallback"), PUBLIC_URL + "/api/sms/twilio-status");
     assert.ok(c.auth.startsWith("Basic "));
     assert.equal(smsFor(order1.id, "order_placed")[0].status, "queued");
@@ -330,7 +339,7 @@ async function step(name, fn) {
     assert.equal((await setStatus("processing")).status, 200); await sleep(80);   // same status again
     assert.equal(twilio.calls.length, base + 1, "re-saving the same status sends nothing");
     assert.equal((await setStatus("shipped")).status, 200); await sleep(80);
-    assert.match(twilio.calls.at(-1).params.get("Body"), /dispatched and is on its way/);
+    assert.match(twilio.calls.at(-1).params.get("Body"), /is on the way/);
     assert.equal((await setStatus("pending")).status, 200); await sleep(80);
     assert.equal(twilio.calls.length, base + 2, "'pending' has no SMS");
     assert.equal((await setStatus("shipped")).status, 200); await sleep(80);
@@ -434,6 +443,16 @@ async function step(name, fn) {
     assert.equal((await http("PUT", `/api/orders/${order1.id}/status`, { ...user, body: { status: "cancelled" } })).status, 401);
   });
 
+  await step("customer order details are account-scoped and reflect the current saved status", async () => {
+    const own = await http("GET", `/api/orders/${order1.id}`, user);
+    assert.equal(own.status, 200);
+    assert.equal(own.json.order.id, order1.id);
+    assert.equal(own.json.order.status, store.orders.get(order1.id).status);
+    assert.equal(own.json.order.items[0].name, store.orders.get(order1.id).items[0].name);
+    assert.equal((await http("GET", `/api/orders/${order1.id}`, other)).status, 404);
+    assert.equal((await http("GET", `/api/orders/${order1.id}`)).status, 401);
+  });
+
   await step("input hardening: address is sanitised, quantity capped, bad bodies rejected", async () => {
     const r = await placeOrder({
       items: [{ productId: 1, qty: 5000 }],
@@ -448,6 +467,22 @@ async function step(name, fn) {
     assert.equal((await placeOrder({ items: Array.from({ length: 101 }, () => ({ productId: 1, qty: 1 })) })).status, 400);
     assert.equal((await http("POST", "/api/auth/login", { body: { email: { $ne: "" }, password: { $ne: "" } } })).status, 400);
     assert.equal((await http("POST", "/api/auth/register", { body: { name: "A", email: "not-an-email", password: "longenough1" } })).status, 400);
+  });
+
+  await step("sold-out products are blocked at the catalogue, checkout and transaction lock, then restored", async () => {
+    const historical = [...store.orders.values()][0];
+    const before = store.orders.size;
+    const sold = await http("PATCH", "/api/admin/products/1/availability", { ...admin, body:{available:false} });
+    assert.equal(sold.status, 200); assert.equal(sold.json.available,false);
+    assert.equal((await http("PATCH", "/api/admin/products/1/availability", { ...user, body:{available:true} })).status,401);
+    const catalog = await http("GET", "/api/products"); assert.equal(catalog.status,200); assert.equal(catalog.json.products[0].available,false);
+    const refused = await placeOrder(); assert.equal(refused.status,409); assert.match(refused.json.error,/Rice is sold out/); assert.equal(store.orders.size,before);
+    store.productAvailable=true; store.sellOutAtLock=true;
+    const raced = await placeOrder(); assert.equal(raced.status,409); assert.equal(store.orders.size,before,"a status change before the locked insert prevents the order");
+    const restored = await http("PATCH", "/api/admin/products/1/availability", { ...admin, body:{available:true} });
+    assert.equal(restored.status,200); assert.equal((await http("GET", "/api/products")).json.products[0].available,true);
+    const purchased = await placeOrder(); assert.equal(purchased.status,201); assert.equal(store.orders.size,before+1);
+    assert.equal(store.orders.get(historical.id).id,historical.id,"historical orders stay intact");
   });
 
   await step(`customer session cookie is ${PRODUCTION ? "Secure + HttpOnly" : "HttpOnly"} (NODE_ENV=${process.env.NODE_ENV})`, async () => {

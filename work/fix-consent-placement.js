@@ -1,0 +1,2 @@
+const fs=require('fs'),path=require('path');
+for(const name of fs.readdirSync('public').filter(n=>n.endsWith('.html'))){const file=path.join('public',name);let s=fs.readFileSync(file,'utf8');s=s.replace(/<script src="assets\/cookie-consent\.js" defer><\/script>\s*/g,'');const at=s.toLowerCase().lastIndexOf('</body>');if(at<0)throw new Error('missing body '+name);s=s.slice(0,at)+'<script src="assets/cookie-consent.js" defer></script>\n'+s.slice(at);fs.writeFileSync(file,s);}

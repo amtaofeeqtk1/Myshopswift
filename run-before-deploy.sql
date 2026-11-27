@@ -4,6 +4,9 @@
 -- 1. Products: brands column (for the Maggi Seasoning Cubes brand picker)
 ALTER TABLE products ADD COLUMN IF NOT EXISTS brands JSONB DEFAULT '[]'::jsonb;
 
+-- 1b. Product availability (existing catalogue items remain available).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS available BOOLEAN NOT NULL DEFAULT TRUE;
+
 -- 2. Rewards: referrals table (none existed before)
 CREATE TABLE IF NOT EXISTS rewards_referrals (
   id TEXT PRIMARY KEY,

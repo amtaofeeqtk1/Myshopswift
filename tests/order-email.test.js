@@ -44,8 +44,8 @@ test("payment and status emails include the branded customer order link", () => 
   }
 });
 
-test("shipped order status is presented as On the way to you", () => {
+test("shipped order status is presented as Your order is on the way", () => {
   const message = email.orderStatusEmail({ ...order, status: "shipped" });
-  assert.match(message.html, /On the way to you/);
-  assert.match(message.text, /On the way to you/);
+  assert.match(message.html, /Your order is on the way/);
+  assert.match(message.text, /Your order is on the way/);
 });

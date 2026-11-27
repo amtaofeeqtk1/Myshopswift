@@ -1,0 +1,2 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+for(const name of fs.readdirSync('public').filter(n=>n.endsWith('.html'))){const html=fs.readFileSync(path.join('public',name),'utf8');for(const match of html.matchAll(/<script(?:\s+([^>]*))?>([\s\S]*?)<\/script>/gi)){const attrs=match[1]||'';if(/type=["']application\/(?:ld\+)?json/i.test(attrs))continue;const code=match[2].trim();if(!code)continue;try{new vm.Script(code,{filename:name});}catch(error){console.error(name+': '+error.message);process.exitCode=1;}}}

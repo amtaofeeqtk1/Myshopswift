@@ -135,7 +135,7 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
                 userId: order.userId,
                 type: "payment",
                 points: -order.pointsUsed,
-                reason: `Used as payment for order #${order.id.slice(0, 8)}`,
+                reason: `Used as payment for order ${order.id.slice(0, 8)}`,
                 orderId: order.id,
                 refId: `payment:${order.id}`
               });
@@ -476,7 +476,7 @@ async function notifyNewOrder(order) {
   try {
     ({ notification, created } = await notifications.createIfNew({
       type: "new_order",
-      title: `New Order — ${firstName} placed order #${shortId}`,
+      title: `New Order — ${firstName} placed order ${shortId}`,
       message: `Total: ${fmtGBP(order.total)} • Payment: ${paymentLabel} • Status: ${order.status}`,
       orderId: order.id,
       customerId: order.userId,
@@ -507,7 +507,7 @@ async function notifyNewOrder(order) {
     // email.js), so this is a courtesy catch, not the safety net.
     email.sendMail({
       to: ADMIN_EMAIL,
-      subject: `New MyShopSwift Order #${shortId}`,
+      subject: `New MyShopSwift Order ${shortId}`,
       text: `New order received!\n\nCustomer: ${order.customerName}\nOrder ID: ${shortId}\nTotal: ${fmtGBP(order.total)}\nPayment method: ${paymentLabel}\nOrder status: ${order.status}\n\nView it in the admin dashboard: ${PUBLIC_URL}/admin.html`,
       html: `
         <p><strong>New order received!</strong></p>
@@ -609,8 +609,8 @@ function rowToOrder(row) {
   };
 }
 
-async function insertOrder(order) {
-  await db.query(
+async function insertOrder(order, queryable = db) {
+  await queryable.query(
     `INSERT INTO orders (
       id, user_id, customer_name, customer_email, phone, items, subtotal,
       delivery_fee, delivery_free_reason, total,
@@ -625,6 +625,38 @@ async function insertOrder(order) {
       JSON.stringify(order.address), order.orderNote, order.status, order.createdAt
     ]
   );
+}
+
+// Lock every product until its order row has been inserted. If an admin is
+// changing availability concurrently, PostgreSQL serializes that update with
+// this check: either the order commits while the item is available, or this
+// transaction observes sold_out and refuses the order.
+async function insertOrderIfProductsAvailable(order) {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const ids = [...new Set(order.items.map(item => Number(item.productId)))].sort((a,b)=>a-b);
+    const result = await client.query(
+      `SELECT id, name, available FROM products WHERE id = ANY($1::int[]) ORDER BY id FOR SHARE`,
+      [ids]
+    );
+    const byId = new Map(result.rows.map(row => [Number(row.id), row]));
+    for (const item of order.items) {
+      const product = byId.get(Number(item.productId));
+      if (!product || product.available === false) {
+        await client.query("ROLLBACK");
+        return { unavailableProduct: product ? product.name : item.name };
+      }
+    }
+    await insertOrder(order, client);
+    await client.query("COMMIT");
+    return { unavailableProduct: null };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // Atomically "claims" the right to send a one-off order email — the UPDATE
@@ -729,7 +761,8 @@ function rowToProduct(row) {
     tag: row.tag || "",
     image: row.image || "",
     description: row.description || "",
-    brands: Array.isArray(row.brands) ? row.brands : []
+    brands: Array.isArray(row.brands) ? row.brands : [],
+    available: row.available !== false
   };
   if (row.old_price !== null && row.old_price !== undefined) out.old = Number(row.old_price);
   return out;
@@ -785,16 +818,17 @@ async function replaceCatalogue(data) {
     }
     for (const p of data.products) {
       await client.query(
-        `INSERT INTO products (id, name, category, price, old_price, icon, tag, image, description, brands)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        `INSERT INTO products (id, name, category, price, old_price, icon, tag, image, description, brands, available)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, category = EXCLUDED.category, price = EXCLUDED.price,
            old_price = EXCLUDED.old_price, icon = EXCLUDED.icon, tag = EXCLUDED.tag,
-           image = EXCLUDED.image, description = EXCLUDED.description, brands = EXCLUDED.brands`,
+           image = EXCLUDED.image, description = EXCLUDED.description, brands = EXCLUDED.brands,
+           available = CASE WHEN $12 THEN EXCLUDED.available ELSE products.available END`,
         [
           p.id, p.name || "", p.cat || "", p.price ?? 0, p.old ?? null,
           p.icon || "", p.tag || "", p.image || "", p.description || "",
-          JSON.stringify(p.brands || [])
+          JSON.stringify(p.brands || []), p.available !== false, Object.prototype.hasOwnProperty.call(p, "available")
         ]
       );
     }
@@ -831,6 +865,7 @@ function validateCatalogue(data) {
     if (!p.id || !p.name || !p.cat) return "Every product needs an id, name, and category";
     if (badImage(p.image)) return `Invalid image on "${p.name}"`;
     if (typeof p.price !== "number" || p.price < 0) return `Invalid price on "${p.name}"`;
+    if (p.available !== undefined && typeof p.available !== "boolean") return `Invalid availability on "${p.name}"`;
   }
   return null;
 }
@@ -861,8 +896,39 @@ app.put("/api/products", requireAdmin, async (req, res) => {
   if (err) return res.status(400).json({ error: err });
   try {
     await replaceCatalogue(req.body);
+    broadcastCatalogueUpdate({ type: "catalogue-updated" });
     res.json({ ok: true, categories: req.body.categories.length, products: req.body.products.length });
   } catch (e) { console.error("[catalogue] Failed to save:", e.message); res.status(500).json({ error: "Could not save catalogue" }); }
+});
+
+const productAvailabilityClients = new Set();
+function broadcastCatalogueUpdate(payload) {
+  const message = `event: catalogue-updated\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of productAvailabilityClients) {
+    try { client.write(message); } catch (_) { productAvailabilityClients.delete(client); }
+  }
+}
+app.get("/api/products/availability-stream", (req, res) => {
+  res.writeHead(200, { "Content-Type":"text/event-stream", "Cache-Control":"no-cache", "Connection":"keep-alive", "X-Accel-Buffering":"no" });
+  res.write("event: connected\ndata: {}\n\n");
+  productAvailabilityClients.add(res);
+  const heartbeat = setInterval(() => { try { res.write(":heartbeat\n\n"); } catch (_) {} }, 25000);
+  req.on("close", () => { clearInterval(heartbeat); productAvailabilityClients.delete(res); });
+});
+
+app.patch("/api/admin/products/:id/availability", requireAdmin, async (req, res) => {
+  if (typeof req.body?.available !== "boolean") return res.status(400).json({ error: "Choose Available or Sold Out" });
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid product" });
+  try {
+    const result = await db.query(`UPDATE products SET available = $1 WHERE id = $2 RETURNING id, available`, [req.body.available, id]);
+    if (!result.rows.length) return res.status(404).json({ error: "Product not found" });
+    broadcastCatalogueUpdate({ type: "availability-updated", id, available: req.body.available });
+    res.json({ ok:true, id, available:result.rows[0].available !== false });
+  } catch (error) {
+    console.error("[catalogue] Availability update failed:", error.message);
+    res.status(500).json({ error: "Could not update product availability" });
+  }
 });
 
 // ---------- AI shopping assistant ----------
@@ -1576,6 +1642,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
   for (const item of items) {
     const p = products.find(x => x.id === item.productId);
     if (!p) return res.status(400).json({ error: `Product ${item.productId} no longer exists` });
+    if (p.available === false) return res.status(409).json({ error: `${p.name} is sold out. Remove it from your basket to continue.` });
     const qty = Math.min(99, Math.max(1, parseInt(item.qty, 10) || 1));
 
     // Per-item replacement preference and special instruction, captured in
@@ -1684,7 +1751,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     try {
       const tx = await rewards.awardPoints({
         userId: req.user.id, type: "payment", points: -pointsUsed,
-        reason: `Used as payment for order #${order.id.slice(0, 8)}`,
+        reason: `Used as payment for order ${order.id.slice(0, 8)}`,
         orderId: order.id, refId: `payment:${order.id}`
       });
       if (!tx || tx.error) {
@@ -1701,8 +1768,10 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     }
   }
 
+  let unavailableProduct = null;
   try {
-    await insertOrder(order);
+    const result = await insertOrderIfProductsAvailable(order);
+    unavailableProduct = result.unavailableProduct;
   } catch (error) {
     console.error("[orders] Failed to save order:", error.message);
     // Points were already deducted above for points orders — give them
@@ -1715,6 +1784,16 @@ app.post("/api/orders", requireAuth, async (req, res) => {
       }).catch(e => console.error("[rewards] CRITICAL: failed to refund points after failed order save:", e.message));
     }
     return res.status(500).json({ error: "Could not save your order — please try again" });
+  }
+  if (unavailableProduct) {
+    if (order.pointsDeducted) {
+      await rewards.awardPoints({
+        userId: req.user.id, type: "payment_reversal", points: pointsUsed,
+        reason: "Refund: product became unavailable", orderId: null, refId: `payment-reversal:${order.id}`,
+        allowNegativeBalance: true
+      }).catch(e => console.error("[rewards] CRITICAL: failed to refund points after unavailable product:", e.message));
+    }
+    return res.status(409).json({ error: `${unavailableProduct} is sold out. Remove it from your basket and place your order again.` });
   }
 
   // Best-effort: save the phone number on the account so future checkouts
@@ -1850,7 +1929,7 @@ app.post("/api/orders/:id/confirm-card-payment", requireAuth, async (req, res) =
       } else {
         const tx = await rewards.awardPoints({
           userId: order.userId, type: "payment", points: -order.pointsUsed,
-          reason: `Used as payment for order #${order.id.slice(0, 8)}`,
+          reason: `Used as payment for order ${order.id.slice(0, 8)}`,
           orderId: order.id, refId: `payment:${order.id}`
         });
         if (tx && !tx.error) order.pointsDeducted = true;
@@ -1889,6 +1968,29 @@ app.get("/api/orders/mine", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("[orders] Failed to load customer orders:", error.message);
     res.status(500).json({ error: "Could not load your orders" });
+  }
+});
+
+// A customer order detail lookup is always bound to the authenticated owner.
+// Images are looked up from the current catalogue while item names/prices stay
+// on the order snapshot, so historical order totals are never recalculated.
+app.get("/api/orders/:id", requireAuth, async (req, res) => {
+  try {
+    const order = await getOrderById(req.params.id);
+    if (!order || String(order.userId) !== String(req.user.id)) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    let products = [];
+    try { products = await getProducts(); } catch (_) {}
+    const byId = new Map(products.map(product => [String(product.id), product]));
+    order.items = (order.items || []).map(item => ({
+      ...item,
+      image: byId.get(String(item.productId))?.image || item.image || ""
+    }));
+    res.json({ order });
+  } catch (error) {
+    console.error("[orders] Failed to load customer order details:", error.message);
+    res.status(500).json({ error: "Could not load this order" });
   }
 });
 

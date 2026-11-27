@@ -80,8 +80,8 @@ async function otherQuery(sql, params = []) {
     const row = { id, name, icon, image }; if (i >= 0) store.categories[i] = row; else store.categories.push(row); return { rows: [] };
   }
   if (q.startsWith("INSERT INTO products")) {
-    const [id, name, category, price, old_price, icon, tag, image, description, brands] = params;
-    const row = { id, name, category, price: String(price), old_price, icon, tag, image, description, brands: JSON.parse(brands) };
+    const [id, name, category, price, old_price, icon, tag, image, description, brands, available] = params;
+    const row = { id, name, category, price: String(price), old_price, icon, tag, image, description, brands: JSON.parse(brands), available:available!==false };
     const i = store.products.findIndex(p => p.id === id); if (i >= 0) store.products[i] = row; else store.products.push(row); return { rows: [] };
   }
   throw new Error("fake db: unmocked SQL: " + q.slice(0, 100));

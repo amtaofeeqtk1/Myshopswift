@@ -346,12 +346,15 @@
       <h2>Products <span class="mono" style="font-size:13px;color:#888;" id="productCount"></span></h2>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <select class="filter" id="catFilter"></select>
+        <select class="filter" id="availabilityFilter" aria-label="Filter products by availability">
+          <option value="all">All availability</option><option value="available">Available</option><option value="sold_out">Sold Out</option>
+        </select>
         <button class="btn btn-dark" id="addProductBtn">+ Add product</button>
       </div>
     </div>
     <table>
       <thead>
-        <tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Tag</th><th>Actions</th></tr>
+        <tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Tag</th><th>Availability</th><th>Actions</th></tr>
       </thead>
       <tbody id="productsBody"></tbody>
     </table>
@@ -376,10 +379,10 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <select class="filter" id="orderStatusFilter">
           <option value="all">All statuses</option>
-          <option value="pending">Pending</option>
+          <option value="pending">Order placed</option>
           <option value="awaiting_payment">Awaiting payment</option>
           <option value="processing">Processing</option>
-          <option value="shipped">On the way to you</option>
+          <option value="shipped">Your order is on the way</option>
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
         </select>
@@ -564,6 +567,10 @@
           <option value="New">New</option>
           <option value="Sale">Sale</option>
         </select>
+      </div>
+      <div class="field">
+        <label>Availability</label>
+        <select id="pAvailability"><option value="available">Available</option><option value="sold_out">Sold Out</option></select>
       </div>
       <div class="field">
         <label>Description (optional)</label>
@@ -1000,12 +1007,14 @@
   function renderProducts(){
     const tbody = document.getElementById("productsBody");
     const filter = document.getElementById("catFilter").value || "all";
+    const availability = document.getElementById("availabilityFilter").value || "all";
     let list = PRODUCTS;
     if(filter !== "all") list = list.filter(p=>p.cat===filter);
+    if(availability !== "all") list = list.filter(p=>availability==="sold_out" ? p.available===false : p.available!==false);
     document.getElementById("productCount").textContent = `(${list.length} of ${PRODUCTS.length})`;
     tbody.innerHTML = "";
     if(list.length===0){
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No products in this category yet.</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No products match these filters.</td></tr>`;
       return;
     }
     list.forEach(p=>{
@@ -1016,6 +1025,7 @@
         <td data-label="Category">${escapeHtml(p.cat)}</td>
         <td class="price-cell" data-label="Price">${fmt(p.price)}${p.old?`<span class="price-old">${fmt(p.old)}</span>`:""}</td>
         <td data-label="Tag">${p.tag?`<span class="tag-pill">${escapeHtml(p.tag)}</span>`:"—"}</td>
+        <td data-label="Availability"><select class="filter product-availability" data-availability="${p.id}" aria-label="Availability for ${escapeHtml(p.name)}"><option value="available" ${p.available!==false?"selected":""}>Available</option><option value="sold_out" ${p.available===false?"selected":""}>Sold Out</option></select></td>
         <td class="actions" data-label="Actions">
           <button class="btn btn-outline btn-sm" data-edit="${p.id}">Edit</button>
           <button class="btn btn-danger btn-sm" data-del="${p.id}">Delete</button>
@@ -1024,6 +1034,13 @@
     });
     tbody.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>openProductModal(Number(b.dataset.edit))));
     tbody.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>deleteProduct(Number(b.dataset.del))));
+    tbody.querySelectorAll("[data-availability]").forEach(sel=>sel.addEventListener("change", async ()=>{
+      const product=PRODUCTS.find(p=>Number(p.id)===Number(sel.dataset.availability));if(!product)return;
+      const previous=product.available!==false,available=sel.value==="available";sel.disabled=true;
+      try{const response=await fetch(`/api/admin/products/${encodeURIComponent(product.id)}/availability`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({available})});const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not update availability");product.available=data.available;showToast(available?"Product is available again":"Product marked sold out");renderProducts();}
+      catch(error){sel.value=previous?"available":"sold_out";showToast(error.message||"Could not update availability");}
+      finally{const current=document.querySelector(`[data-availability="${CSS.escape(sel.dataset.availability)}"]`);if(current)current.disabled=false;}
+    }));
   }
 
   function renderCategories(){
@@ -1050,6 +1067,7 @@
   }
 
   document.getElementById("catFilter").addEventListener("change", renderProducts);
+  document.getElementById("availabilityFilter").addEventListener("change", renderProducts);
 
   function renderProductBrandTags(){
     const wrap = document.getElementById("pBrandTags");
@@ -1105,6 +1123,7 @@
       document.getElementById("pOldPrice").value = p.old || "";
       document.getElementById("pTag").value = p.tag || "";
       document.getElementById("pDescription").value = p.description || "";
+      document.getElementById("pAvailability").value = p.available===false ? "sold_out" : "available";
       editingProductBrands = Array.isArray(p.brands) ? p.brands.map(b=>String(b).trim()).filter(Boolean) : [];
     } else {
       document.getElementById("productModalTitle").textContent = "Add product";
@@ -1115,6 +1134,7 @@
       document.getElementById("pOldPrice").value = "";
       document.getElementById("pTag").value = "";
       document.getElementById("pDescription").value = "";
+      document.getElementById("pAvailability").value = "available";
       editingProductBrands = [];
     }
     renderProductBrandTags();
@@ -1133,6 +1153,7 @@
     const old = oldVal ? parseFloat(oldVal) : undefined;
     const tag = document.getElementById("pTag").value || undefined;
     const description = document.getElementById("pDescription").value.trim() || undefined;
+    const available = document.getElementById("pAvailability").value !== "sold_out";
     const brands = [...editingProductBrands];
 
     if(!name){ showToast("Give the product a name"); return; }
@@ -1141,11 +1162,11 @@
 
     if(editingProductId){
       const p = PRODUCTS.find(x=>x.id===editingProductId);
-      Object.assign(p, { name, cat, icon, image, price, old, tag, description, brands });
+      Object.assign(p, { name, cat, icon, image, price, old, tag, description, brands, available });
       if(!image) delete p.image;
       if(!description) delete p.description;
     } else {
-      PRODUCTS.push({ id: nextProductId++, name, cat, icon, image, price, old, tag, description, brands });
+      PRODUCTS.push({ id: nextProductId++, name, cat, icon, image, price, old, tag, description, brands, available });
     }
     productModal.classList.remove("active");
     renderProducts();
@@ -1245,6 +1266,7 @@
   function getAdminKey(){ return true; }
 
   const ORDER_STATUSES = ["pending","awaiting_payment","processing","shipped","delivered","cancelled"];
+  const ORDER_STATUS_LABELS = {pending:"Order placed",awaiting_payment:"Awaiting payment",processing:"Processing",shipped:"Your order is on the way",delivered:"Delivered",cancelled:"Cancelled"};
 
   async function loadOrders(){
     const key = getAdminKey();
@@ -1347,7 +1369,7 @@
         ? fmt(o.deliveryFee)
         : `FREE${o.deliveryFreeReason ? `<div style="font-size:10.5px;color:#888;">${escapeHtml(o.deliveryFreeReason)}</div>` : ""}`;
       tr.innerHTML = `
-        <td data-label="Date">${new Date(o.createdAt).toLocaleString("en-GB")}<br><button class="btn btn-outline btn-sm order-pdf" data-order="${escapeHtml(o.id)}">Download PDF</button><br><span class="mono" style="font-size:11px;color:#888;" title="Order reference (what customers quote, e.g. on WhatsApp)">#${escapeHtml(o.id.slice(0,8))}</span></td>
+        <td data-label="Date">${new Date(o.createdAt).toLocaleString("en-GB")}<br><button class="btn btn-outline btn-sm order-pdf" data-order="${escapeHtml(o.id)}">Download PDF</button><br><span class="mono" style="font-size:11px;color:#888;" title="Order reference (what customers quote, e.g. on WhatsApp)">${escapeHtml(o.id.slice(0,8))}</span></td>
         <td data-label="Customer"><strong>${escapeHtml(o.customerName)}</strong><br><span class="mono" style="font-size:11px;color:#888;">${escapeHtml(o.customerEmail)}</span></td>
         <td data-label="Phone">${o.phone ? escapeHtml(o.phone) : "—"}</td>
         <td data-label="Items" style="max-width:260px;">${itemsSummary}</td>
@@ -1358,7 +1380,7 @@
         <td data-label="Points used" style="font-size:12px;">${pointsLabel}</td>
         <td data-label="Address">${escapeHtml(o.address.line1)}, ${escapeHtml(o.address.city)} ${escapeHtml(o.address.postcode)}</td>
         <td data-label="Order note" style="max-width:180px;font-size:12.5px;color:#555;">${o.orderNote ? escapeHtml(o.orderNote) : "—"}</td>
-        <td data-label="Status"><select class="filter status-select" data-order="${o.id}">${ORDER_STATUSES.map(s=>`<option value="${s}" ${s===o.status?"selected":""}>${s.replace("_"," ")}</option>`).join("")}</select><div data-sms-for="${o.id}">${smsCellHtml(o.id)}</div></td>`;
+        <td data-label="Status"><select class="filter status-select" data-order="${o.id}">${ORDER_STATUSES.map(s=>`<option value="${s}" ${s===o.status?"selected":""}>${ORDER_STATUS_LABELS[s]}</option>`).join("")}</select><div data-sms-for="${o.id}">${smsCellHtml(o.id)}</div></td>`;
       tbody.appendChild(tr);
     });
     tbody.querySelectorAll(".status-select").forEach(sel=>{
@@ -1386,7 +1408,7 @@
     const b=e.target.closest(".order-pdf");if(!b)return;const o=(window.__orders||[]).find(x=>String(x.id)===b.dataset.order);if(!o)return;
     const rowHtml=o.items.map(i=>{const p=PRODUCTS.find(x=>String(x.id)===String(i.productId));const img=p&&p.image?'<img src="'+escapeHtml(cdnImg(p.image,160))+'" style="width:48px;height:48px;object-fit:cover">':'';return '<tr><td>'+img+'</td><td>'+escapeHtml(i.name)+'</td><td>'+i.qty+'</td><td>£'+Number(i.price).toFixed(2)+'</td><td>£'+(i.qty*i.price).toFixed(2)+'</td></tr>';}).join('');
     const w=window.open('','_blank');if(!w){showToast('Allow pop-ups to download this order');return;}
-    const address=o.address||{};const html='<!doctype html><html><head><title>MyShopSwift Order '+escapeHtml(o.id)+'</title><style>body{font:14px Arial;color:#252525;margin:40px}header{display:flex;justify-content:space-between;border-bottom:2px solid #a5482d;padding-bottom:12px}h1{color:#a5482d}table{width:100%;border-collapse:collapse;margin:24px 0}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}.sum{text-align:right;line-height:1.8}@media print{button{display:none}}</style></head><body><header><div><img src="https://myshopswift.co.uk/assets/logo-cropped.jpg" style="height:52px;object-fit:contain"><div>Order summary</div></div><div><b>Order #'+escapeHtml(o.id)+'</b><br>'+new Date(o.createdAt).toLocaleString('en-GB')+'</div></header><h2>Customer</h2><p>'+escapeHtml(o.customerName)+' · '+escapeHtml(o.phone||'')+' · '+escapeHtml(o.customerEmail)+'</p><p>'+escapeHtml(address.line1||'')+' '+escapeHtml(address.line2||'')+'<br>'+escapeHtml(address.city||'')+' '+escapeHtml(address.county||'')+' '+escapeHtml(address.postcode||'')+' '+escapeHtml(address.country||'')+'</p><table><thead><tr><th></th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>'+rowHtml+'</tbody></table><div class="sum">Subtotal: £'+Number(o.subtotal||o.total).toFixed(2)+'<br>Delivery: £'+Number(o.deliveryFee||0).toFixed(2)+(o.pointsValue>0?'<br>Points discount: −£'+Number(o.pointsValue).toFixed(2):'')+'<br><b>Total: £'+Number(o.total).toFixed(2)+'</b><br>Payment: '+escapeHtml(o.paymentMethod||'')+'<br>Payment status: '+(o.status==='awaiting_payment'?'Pending':(o.paymentMethod==='cod'?'Not recorded':'Confirmed'))+'<br>Status: '+escapeHtml(o.status||'')+'</div><p>Thank you for shopping with MyShopSwift.</p><button onclick="window.print()">Print / Save as PDF</button></body></html>';
+    const address=o.address||{};const html='<!doctype html><html><head><title>MyShopSwift Order '+escapeHtml(o.id)+'</title><style>body{font:14px Arial;color:#252525;margin:40px}header{display:flex;justify-content:space-between;border-bottom:2px solid #a5482d;padding-bottom:12px}h1{color:#a5482d}table{width:100%;border-collapse:collapse;margin:24px 0}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}.sum{text-align:right;line-height:1.8}@media print{button{display:none}}</style></head><body><header><div><img src="https://myshopswift.co.uk/assets/logo-cropped.jpg" style="height:52px;object-fit:contain"><div>Order summary</div></div><div><b>Order '+escapeHtml(o.id.slice(0,8))+'</b><br>'+new Date(o.createdAt).toLocaleString('en-GB')+'</div></header><h2>Customer</h2><p>'+escapeHtml(o.customerName)+' · '+escapeHtml(o.phone||'')+' · '+escapeHtml(o.customerEmail)+'</p><p>'+escapeHtml(address.line1||'')+' '+escapeHtml(address.line2||'')+'<br>'+escapeHtml(address.city||'')+' '+escapeHtml(address.county||'')+' '+escapeHtml(address.postcode||'')+' '+escapeHtml(address.country||'')+'</p><table><thead><tr><th></th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>'+rowHtml+'</tbody></table><div class="sum">Subtotal: £'+Number(o.subtotal||o.total).toFixed(2)+'<br>Delivery: £'+Number(o.deliveryFee||0).toFixed(2)+(o.pointsValue>0?'<br>Points discount: −£'+Number(o.pointsValue).toFixed(2):'')+'<br><b>Total: £'+Number(o.total).toFixed(2)+'</b><br>Payment: '+escapeHtml(o.paymentMethod||'')+'<br>Payment status: '+(o.status==='awaiting_payment'?'Pending':(o.paymentMethod==='cod'?'Not recorded':'Confirmed'))+'<br>Status: '+escapeHtml(o.status||'')+'</div><p>Thank you for shopping with MyShopSwift.</p><button onclick="window.print()">Print / Save as PDF</button></body></html>';
     w.document.open();w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);
   });
   document.getElementById("ordersBody").addEventListener("click", async (e)=>{
@@ -1928,5 +1950,6 @@
   checkAdminSession();
 })();
 </script>
+<script src="assets/cookie-consent.js" defer></script>
 </body>
 </html>

@@ -43,7 +43,7 @@ test("normalisePhone: non-UK numbers need an international prefix", () => {
 });
 
 test("orderRef matches the reference already shown in emails and Track Order", () => {
-  assert.equal(sms.orderRef(ORDER_ID), "#a1b2c3d4");
+  assert.equal(sms.orderRef(ORDER_ID), "a1b2c3d4");
 });
 
 test("templates: every event has one, uses the reference, stays one plain SMS segment", () => {
@@ -51,7 +51,8 @@ test("templates: every event has one, uses the reference, stays one plain SMS se
     const body = sms.buildMessage(event, ORDER_ID);
     assert.ok(body, `${event} has a template`);
     assert.ok(body.startsWith("MyShopSwift: "), `${event} is branded`);
-    assert.ok(body.includes("#a1b2c3d4"), `${event} contains the order reference`);
+    assert.ok(body.includes("a1b2c3d4"), `${event} contains the order reference`);
+    assert.ok(!body.includes("#a1b2c3d4"), `${event} omits the hash prefix`);
     assert.ok(body.length <= 160, `${event} fits one segment (${body.length})`);
     assert.ok(/^[\x20-\x7E]+$/.test(body), `${event} is plain ASCII (GSM-7 safe)`);
   }

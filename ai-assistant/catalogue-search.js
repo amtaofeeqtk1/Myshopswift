@@ -60,6 +60,7 @@ function toModelView(p) {
     name: p.name,
     category: p.cat,
     price: p.price,
+    available: p.available !== false,
     requires_brand: brands.length > 0
   };
   if (brands.length) out.brands = brands;
@@ -80,6 +81,7 @@ function toCard(p) {
     oldPrice: typeof p.old === "number" && p.old > p.price ? p.old : null,
     image: p.image || "",
     tag: p.tag || "",
+    available: p.available !== false,
     description: truncate(p.description, 110),
     brands: productBrands(p)
   };

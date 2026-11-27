@@ -1,6 +1,5 @@
-import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
-const base=(process.env.EXPO_PUBLIC_API_BASE_URL||Constants.expoConfig?.extra?.apiBaseUrl||'').replace(/\/$/,'');
+const base=(process.env.EXPO_PUBLIC_API_BASE_URL||'').replace(/\/$/,'');
 export const imageUrl=(path?:string)=>!path?'':/^https?:\/\//i.test(path)?path:`${base}/${path.replace(/^\//,'')}`;
 export async function api(path:string, options:RequestInit={}){
   if(!base)throw new Error('Set EXPO_PUBLIC_API_BASE_URL to your MyShopSwift server URL before using the app.');

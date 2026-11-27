@@ -46,12 +46,14 @@ async function migrateProducts() {
         tag TEXT DEFAULT '',
         image TEXT DEFAULT '',
         description TEXT DEFAULT '',
-        brands JSONB DEFAULT '[]'::jsonb
+        brands JSONB DEFAULT '[]'::jsonb,
+        available BOOLEAN NOT NULL DEFAULT TRUE
       );
     `);
     // Table may already exist from before "brands" was added — this is a
     // no-op if the column is already there.
     await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS brands JSONB DEFAULT '[]'::jsonb;`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS available BOOLEAN NOT NULL DEFAULT TRUE;`);
 
     for (const category of categories) {
       await pool.query(

@@ -12,7 +12,7 @@
   var NUMBER = "447739320205"; // official number 07739 320205, in international format (no + or spaces)
 
   function ref(orderId) {
-    return "#" + String(orderId).slice(0, 8);
+    return String(orderId).slice(0, 8);
   }
 
   function link(orderId) {

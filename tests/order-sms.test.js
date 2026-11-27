@@ -70,7 +70,7 @@ test("sends once to the normalised checkout number with the right text", async (
   assert.equal(r.sent, true);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].to, "+447739320205");
-  assert.equal(calls[0].body, "MyShopSwift: Your order #a1b2c3d4 has been successfully received. Thank you for shopping with us!");
+  assert.equal(calls[0].body, "MyShopSwift: Your order a1b2c3d4 has been successfully received. Thank you for shopping with us!");
   assert.equal(db.rows.length, 1);
   assert.equal(db.rows[0].status, "queued");
   assert.equal(db.rows[0].provider_message_id, "SM1");
@@ -148,7 +148,7 @@ test("logs never contain the phone number or message text", async () => {
   assert.ok(logs.length > 0);
   assert.ok(!/7739|320205|7946|0958/.test(all), "no phone digits in logs");
   assert.ok(!all.includes("Thank you for shopping"), "no message text in logs");
-  assert.ok(all.includes("#a1b2c3d4"), "order reference is logged");
+  assert.ok(all.includes("a1b2c3d4"), "order reference is logged");
 });
 
 // ---- retry ----

@@ -91,10 +91,10 @@ function fmtGBP(n) {
 
 const PAYMENT_METHOD_LABELS = { cod: "Legacy payment", card: "Pay by Card", points: "Pay by Point" };
 const STATUS_INFO = {
-  pending: { label: "Pending", next: "We're getting your order ready." },
+  pending: { label: "Order placed", next: "We're getting your order ready." },
   awaiting_payment: { label: "Awaiting payment", next: "This order is held until your card payment completes." },
   processing: { label: "Processing", next: "Your order is being packed." },
-  shipped: { label: "On the way to you", next: "Your order is on its way." },
+  shipped: { label: "Your order is on the way", next: "Your parcel has been dispatched and is on its way to you." },
   delivered: { label: "Delivered", next: "Enjoy! Let us know if anything was missing or damaged." },
   cancelled: { label: "Cancelled", next: "This order has been cancelled. Contact us if you have any questions." }
 };
@@ -159,7 +159,7 @@ function orderHeaderHtml(order) {
   return `
     <p>Hi ${escapeHtml((order.customerName || "there").split(" ")[0])},</p>
     <p style="font-size:13.5px;color:#666;">
-      Order reference: <strong>#${order.id.slice(0, 8)}</strong><br>
+      Order reference: <strong>${order.id.slice(0, 8)}</strong><br>
       Order date: ${new Date(order.createdAt).toLocaleString("en-GB")}
     </p>
   `;
@@ -229,26 +229,26 @@ async function sendVerificationEmail(to, name, verifyUrl) {
 
 function orderPlacedEmail(order) {
   return {
-    subject: `Order received — #${order.id.slice(0, 8)} — MyShopSwift`,
+    subject: `Order received — ${order.id.slice(0, 8)} — MyShopSwift`,
     html: brandedOrderEmail(order, "Thanks for your order"),
-    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nThanks for your order! Order reference #${order.id.slice(0, 8)}, placed ${new Date(order.createdAt).toLocaleString("en-GB")}.\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
+    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nThanks for your order! Order reference ${order.id.slice(0, 8)}, placed ${new Date(order.createdAt).toLocaleString("en-GB")}.\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
   };
 }
 
 function paymentConfirmedEmail(order) {
   return {
-    subject: `Payment confirmed — #${order.id.slice(0, 8)} — MyShopSwift`,
+    subject: `Payment confirmed — ${order.id.slice(0, 8)} — MyShopSwift`,
     html: brandedOrderEmail(order, "Payment confirmed"),
-    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour payment for order #${order.id.slice(0, 8)} has been confirmed.\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
+    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour payment for order ${order.id.slice(0, 8)} has been confirmed.\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
   };
 }
 
 function orderStatusEmail(order) {
   const statusInfo = STATUS_INFO[order.status] || { label: order.status, next: "" };
   return {
-    subject: `Order #${order.id.slice(0, 8)} update: ${statusInfo.label} — MyShopSwift`,
-    html: brandedOrderEmail(order, `Your order is ${escapeHtml(statusInfo.label.toLowerCase())}`),
-    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour order #${order.id.slice(0, 8)} status has changed to: ${statusInfo.label}\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
+    subject: `Order ${order.id.slice(0, 8)} update: ${statusInfo.label} — MyShopSwift`,
+    html: brandedOrderEmail(order, statusInfo.label === "Your order is on the way" ? statusInfo.label : `Your order is ${escapeHtml(statusInfo.label.toLowerCase())}`),
+    text: `Hi ${(order.customerName || "there").split(" ")[0]},\n\nYour order ${order.id.slice(0, 8)} status has changed to: ${statusInfo.label}\n\n${orderSummaryText(order)}\n\nView this order in your account: ${orderProfileUrl(order)}\nShop: ${PUBLIC_URL}\nContact: ${CONTACT_EMAIL}\n\n— MyShopSwift`
   };
 }
 
